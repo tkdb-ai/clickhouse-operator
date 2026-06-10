@@ -317,7 +317,7 @@ configs:
         # the operator runs in `kube-system`); use [".*"] to force watch-all elsewhere.
         # Empty `exclude` matches none. `exclude` is applied after `include`.
         namespaces:
-          include: []
+          include: ["clickhouse","clickhouse-operator"]
           exclude: []
         # Behavior when ClickHouseOperatorConfiguration changes: none | restart
         configuration:

@@ -1,7 +1,7 @@
 # Default values for clickhouse-installation.
 
-nameOverride: ""
-fullnameOverride: ""
+nameOverride: ''
+fullnameOverride: ''
 
 # Cluster Layout
 layout:
@@ -11,14 +11,14 @@ layout:
 # ClickHouse Image
 image:
   repository: clickhouse/clickhouse-server
-  tag: "24.8"
+  tag: '24.8'
   pullPolicy: IfNotPresent
 
 # Storage Configuration
 storage:
   data:
     size: 10Gi
-    storageClassName: hostpath # Change to your storage class
+    storageClassName: standard # Change to your storage class
     accessModes:
       - ReadWriteOnce
   log:
@@ -57,32 +57,45 @@ coordination:
         port: 2181
 
 # ClickHouse Settings (config.xml)
-settings: 
+settings:
   compression/case/method: zstd
 
 # ClickHouse Users (users.xml)
-adminPassword: "" # Leave empty to generate a random one
+adminPassword: '' # Leave empty to generate a random one
 users:
   default:
     password: "password"
     networks/ip: "0.0.0.0/0"
   admin:
     profile: default
+    networks/ip: 0.0.0.0/0
+    access_management: '1'
+  dev-user:
+    password: adminpassword
 
 # Profiles and Quotas
-profiles: {}
-  # default/max_memory_usage: 1000000000
+profiles: {} # default/max_memory_usage: 1000000000
 
 quotas: {}
 
 # Resource Limits/Requests
-resources: {}
-  # limits:
-  #   cpu: 1000m
-  #   memory: 2Gi
-  # requests:
-  #   cpu: 500m
-  #   memory: 1Gi
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Probe Configuration
+livenessProbe:
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 10
+readinessProbe:
+  initialDelaySeconds: 20
+  periodSeconds: 10
+  timeoutSeconds: 10
 
 # Monitoring
 # Enables prometheus monitoring endpoint in ClickHouse
@@ -153,7 +166,7 @@ podTemplate:
       imagePullPolicy: IfNotPresent
       command:
         - sh
-        - -c
+        - '-c'
         - |
           while true; do
             du -sh /var/lib/clickhouse || true
@@ -165,7 +178,7 @@ podTemplate:
           readOnly: true
   # sidecars: []
 
-# Advanced: Service Template
+  # Advanced: Service Template
 serviceTemplate:
   type: ClusterIP
   # annotations: {}

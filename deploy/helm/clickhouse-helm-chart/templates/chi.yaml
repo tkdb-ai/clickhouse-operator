@@ -30,7 +30,7 @@ spec:
     
     users:
       {{- range $user, $config := .Values.users }}
-      {{- if and (eq $user "admin") (not $config.k8s_secret_password) }}
+      {{- if and (eq $user "admin") (not $config.k8s_secret_password) (not $config.password) }}
       {{ $user }}/k8s_secret_password: {{ printf "%s-admin/admin" (include "clickhouse.fullname" $) | quote }}
       {{- end }}
       {{- range $key, $val := $config }}
@@ -113,6 +113,20 @@ spec:
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
               {{- end }}
+              livenessProbe:
+                httpGet:
+                  path: /ping
+                  port: 8123
+                initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds | default 60 }}
+                periodSeconds: {{ .Values.livenessProbe.periodSeconds | default 10 }}
+                timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds | default 5 }}
+              readinessProbe:
+                httpGet:
+                  path: /ping
+                  port: 8123
+                initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds | default 10 }}
+                periodSeconds: {{ .Values.readinessProbe.periodSeconds | default 10 }}
+                timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 5 }}
               {{- if or $podTemplate.extraEnv $podTemplate.extraVolumeMounts }}
               {{- if $podTemplate.extraEnv }}
               env:
