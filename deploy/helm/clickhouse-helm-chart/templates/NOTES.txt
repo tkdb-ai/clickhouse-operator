@@ -12,3 +12,48 @@
 
 5. Secret Name for Reference:
    {{ include "clickhouse.fullname" . }}-admin
+
+{{- if eq .Values.coordination.mode "keeper" }}
+
+6. ClickHouse Keeper is deployed as the coordination service.
+   CHK resource: {{ include "clickhouse.fullname" . }}-keeper
+   Replicas:     {{ .Values.coordination.keeper.replicasCount }}
+   {{- if eq (int .Values.coordination.keeper.replicasCount) 1 }}
+
+   WARNING: 1 Keeper replica has no fault tolerance. Set coordination.keeper.replicasCount=3 for production.
+   {{- end }}
+
+   Check Keeper status:
+   kubectl get chk {{ include "clickhouse.fullname" . }}-keeper -n {{ .Release.Namespace }}
+{{- else if eq .Values.coordination.mode "zookeeper" }}
+
+6. Using external ZooKeeper for coordination.
+   Nodes: {{ range .Values.coordination.zookeeper.nodes }}{{ .host }}:{{ .port }} {{ end }}
+{{- end }}
+{{- if .Values.backup.enabled }}
+
+{{ if .Values.seaweedfs.enabled -}}
+TIP: SeaweedFS is enabled — set backup.s3.endpoint=http://{{ .Release.Name }}-seaweedfs-s3:8333 and backup.s3.bucket to use it as your backup target.
+{{ end -}}
+Backup REST API (port 7171) is available on each ClickHouse pod.
+
+   Create and upload a backup:
+   kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
+
+   List remote backups:
+   kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup list remote
+
+   Restore a backup:
+   kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup restore <backup-name>
+{{- end }}
+{{- if .Values.seaweedfs.enabled }}
+
+6. SeaweedFS S3 is enabled.
+   Endpoint (in-cluster): http://{{ .Release.Name }}-seaweedfs-s3:8333
+   Bucket:                 {{ .Values.seaweedfs.bucket }}
+   ClickHouse storage policy '{{ .Values.seaweedfs.storagePolicy }}' is configured via s3_disk.
+
+   NOTE: You must create the bucket before ClickHouse can use it:
+   kubectl exec -n {{ .Release.Namespace }} deploy/{{ .Release.Name }}-seaweedfs-s3 -- \
+     s3cmd mb s3://{{ .Values.seaweedfs.bucket }}
+{{- end }}

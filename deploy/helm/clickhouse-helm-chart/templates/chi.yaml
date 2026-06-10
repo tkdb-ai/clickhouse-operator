@@ -18,10 +18,14 @@ spec:
       {{- end }}
 
   configuration:
-    {{- if .Values.zookeeper.enabled }}
+    {{- if eq .Values.coordination.mode "keeper" }}
+    zookeeper:
+      keeper:
+        name: {{ include "clickhouse.fullname" . }}-keeper
+    {{- else if eq .Values.coordination.mode "zookeeper" }}
     zookeeper:
       nodes:
-        {{- toYaml .Values.zookeeper.nodes | nindent 8 }}
+        {{- toYaml .Values.coordination.zookeeper.nodes | nindent 8 }}
     {{- end }}
     
     users:
@@ -50,7 +54,35 @@ spec:
       {{- toYaml .Values.settings | nindent 6 }}
 
     files:
+      {{- if .Values.files }}
       {{- toYaml .Values.files | nindent 6 }}
+      {{- end }}
+      {{- if .Values.seaweedfs.enabled }}
+      storage_config.xml: |
+        <clickhouse>
+          <storage_configuration>
+            <disks>
+              <s3_disk>
+                <type>s3</type>
+                <endpoint>http://{{ .Release.Name }}-seaweedfs-s3:8333/{{ .Values.seaweedfs.bucket }}/</endpoint>
+                <access_key_id>{{ .Values.seaweedfs.accessKey }}</access_key_id>
+                <secret_access_key>{{ .Values.seaweedfs.secretKey }}</secret_access_key>
+              </s3_disk>
+            </disks>
+            <policies>
+              <{{ .Values.seaweedfs.storagePolicy }}>
+                <volumes>
+                  <main>
+                    <disk>s3_disk</disk>
+                  </main>
+                </volumes>
+              </{{ .Values.seaweedfs.storagePolicy }}>
+            </policies>
+          </storage_configuration>
+        </clickhouse>
+      {{- else if not .Values.files }}
+      {}
+      {{- end }}
 
     clusters:
       - name: "main"
@@ -93,6 +125,53 @@ spec:
               {{- end }}
           {{- if $podTemplate.sidecars }}
           {{- toYaml $podTemplate.sidecars | nindent 12 }}
+          {{- end }}
+          {{- if .Values.backup.enabled }}
+            - name: clickhouse-backup
+              image: {{ printf "%s:%s" .Values.backup.image.repository .Values.backup.image.tag }}
+              imagePullPolicy: {{ .Values.backup.image.pullPolicy }}
+              command: ["bash", "-xc", "/bin/clickhouse-backup server"]
+              ports:
+                - name: backup-rest
+                  containerPort: 7171
+              env:
+                - name: API_LISTEN
+                  value: "0.0.0.0:7171"
+                - name: API_ENABLE_METRICS
+                  value: "true"
+                - name: API_CREATE_INTEGRATION_TABLES
+                  value: "true"
+                - name: REMOTE_STORAGE
+                  value: "s3"
+                - name: BACKUPS_TO_KEEP_REMOTE
+                  value: {{ .Values.backup.keepRemote | quote }}
+                - name: S3_BUCKET
+                  value: {{ .Values.backup.s3.bucket | quote }}
+                - name: S3_PATH
+                  value: {{ .Values.backup.s3.path | quote }}
+                - name: S3_ENDPOINT
+                  value: {{ .Values.backup.s3.endpoint | quote }}
+                - name: S3_REGION
+                  value: {{ .Values.backup.s3.region | quote }}
+                - name: S3_FORCE_PATH_STYLE
+                  value: {{ .Values.backup.s3.forcePathStyle | quote }}
+                - name: CLICKHOUSE_USERNAME
+                  value: "admin"
+                - name: CLICKHOUSE_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "clickhouse.fullname" . }}-admin
+                      key: admin
+              envFrom:
+                - secretRef:
+                    name: {{ include "clickhouse.fullname" . }}-backup
+              {{- if .Values.backup.resources }}
+              resources:
+                {{- toYaml .Values.backup.resources | nindent 16 }}
+              {{- end }}
+              volumeMounts:
+                - name: data-volumeclaim-template
+                  mountPath: /var/lib/clickhouse
           {{- end }}
           {{- if $podTemplate.extraVolumes }}
           volumes:

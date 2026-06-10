@@ -1,55 +1,390 @@
 # ClickHouse Installation Helm Chart
 
-This chart deploys a `ClickHouseInstallation` (CHI) resource managed by the Altinity ClickHouse Operator.
+Deploys a `ClickHouseInstallation` (CHI) custom resource managed by the [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator). The operator must be installed in the cluster before this chart will work — it is not included here.
 
-## Features
+## Prerequisites
 
-- **Automated Security**: Automatically generates a secure, random admin password on first install.
-- **Deployment-Specific Secrets**: Secrets are prefixed with the release name to support multiple installations in the same namespace.
-- **Persistence Logic**: Uses Helm `lookup` to ensure passwords remain stable across upgrades.
-- **Sidecar Support**: Includes a pre-configured data-checker sidecar for monitoring disk usage.
+- Kubernetes 1.21+
+- Helm 3.x
+- [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator) installed
 
-## Configuration
+## Quick Start
 
-### Admin User
-The `admin` user is configured to use a Kubernetes Secret for its password.
-
-- **Secret Name**: `{{ .Release.Name }}-clickhouse-installation-admin`
-- **Secret Key**: `admin`
-
-If `adminPassword` is left empty in `values.yaml`, a random 16-character password is generated during the initial installation.
-
-### Persistence across Upgrades
-This chart uses a "lookup-first" pattern. During a `helm upgrade`, Helm checks if the admin secret already exists. If found, it preserves the existing password even if `values.yaml` is changed. This prevents accidental lockouts.
-
-## Usage
-
-### Install the Chart
 ```bash
-helm install ch1 . -n clickstack
+helm install my-ch . -n clickstack --create-namespace
 ```
 
-### Get the Admin Password
-To retrieve the automatically generated password:
+Retrieve the generated admin password:
 ```bash
-kubectl get secret $(helm get notes ch1 | grep "Secret Name" | awk '{print $NF}') -n clickstack -o jsonpath='{.data.admin}' | base64 --decode
+kubectl get secret my-ch-clickhouse-installation-admin -n clickstack \
+  -o jsonpath='{.data.admin}' | base64 --decode
 ```
-*(Or manually look up the secret named `<release>-admin`)*
 
-### Upgrade the Chart
-```bash
-helm upgrade ch1 . -n clickstack
+---
+
+## Configuration Reference
+
+### Identity
+
+| Value | Default | Description |
+|---|---|---|
+| `nameOverride` | `""` | Override the chart name |
+| `fullnameOverride` | `""` | Override the fully qualified release name |
+
+---
+
+### Cluster Layout
+
+| Value | Default | Description |
+|---|---|---|
+| `layout.shardsCount` | `1` | Number of shards |
+| `layout.replicasCount` | `2` | Number of replicas per shard |
+
+Replication requires a coordination service (`coordination.mode: keeper` or `zookeeper`). For a single standalone node, set `replicasCount: 1` and `coordination.mode: none`.
+
+---
+
+### ClickHouse Image
+
+| Value | Default | Description |
+|---|---|---|
+| `image.repository` | `clickhouse/clickhouse-server` | Container image |
+| `image.tag` | `"24.8"` | Image tag (falls back to `appVersion` if unset) |
+| `image.pullPolicy` | `IfNotPresent` | Image pull policy |
+
+---
+
+### Storage
+
+| Value | Default | Description |
+|---|---|---|
+| `storage.data.size` | `10Gi` | Data PVC size |
+| `storage.data.storageClassName` | `hostpath` | Storage class — change for your cluster |
+| `storage.data.accessModes` | `[ReadWriteOnce]` | PVC access modes |
+| `storage.log.enabled` | `false` | Create a separate PVC for ClickHouse logs |
+| `storage.log.size` | `2Gi` | Log PVC size |
+| `storage.log.storageClassName` | `standard` | Storage class for log PVC |
+| `storage.log.accessModes` | `[ReadWriteOnce]` | PVC access modes |
+
+---
+
+### Coordination
+
+Controls how ClickHouse replicas coordinate with each other. Required for replication and distributed DDL.
+
+| Value | Default | Description |
+|---|---|---|
+| `coordination.mode` | `keeper` | `keeper`, `zookeeper`, or `none` |
+
+#### `keeper` mode (recommended)
+
+Deploys a `ClickHouseKeeperInstallation` (CHK) managed by the same operator — no external ZooKeeper required.
+
+| Value | Default | Description |
+|---|---|---|
+| `coordination.keeper.replicasCount` | `1` | Number of Keeper replicas. Use `3` for production HA (must be odd) |
+| `coordination.keeper.image.repository` | `clickhouse/clickhouse-keeper` | Keeper image |
+| `coordination.keeper.image.tag` | `"24.8"` | Keeper image tag |
+| `coordination.keeper.image.pullPolicy` | `IfNotPresent` | Pull policy |
+| `coordination.keeper.storage.size` | `10Gi` | Keeper data PVC size |
+| `coordination.keeper.storage.storageClassName` | `hostpath` | Storage class |
+| `coordination.keeper.storage.accessModes` | `[ReadWriteOnce]` | PVC access modes |
+| `coordination.keeper.resources` | `{}` | CPU/memory limits and requests |
+
+Pod anti-affinity is automatically enabled when `replicasCount > 1` to spread Keeper pods across nodes.
+
+#### `zookeeper` mode
+
+Points ClickHouse at an existing external ZooKeeper ensemble.
+
+| Value | Default | Description |
+|---|---|---|
+| `coordination.zookeeper.nodes` | `[{host: zookeeper.default.svc.cluster.local, port: 2181}]` | ZooKeeper node list |
+
+#### `none` mode
+
+Disables coordination entirely. Only suitable for single-node deployments with no replication.
+
+---
+
+### Users & Authentication
+
+| Value | Default | Description |
+|---|---|---|
+| `adminPassword` | `""` | Admin password. Leave empty to auto-generate a random 16-character password |
+| `users.default.password` | `"password"` | Password for the `default` user |
+| `users.default.networks/ip` | `"0.0.0.0/0"` | Allowed source IPs for the `default` user |
+| `users.admin.profile` | `default` | Profile assigned to the `admin` user |
+
+The `admin` password is stored in a Kubernetes Secret named `<release>-clickhouse-installation-admin`. Helm's `lookup` function preserves the existing secret on `helm upgrade`, so the password never rotates unexpectedly.
+
+Additional users can be added under `users`:
+```yaml
+users:
+  myuser:
+    password: "mypassword"
+    networks/ip: "10.0.0.0/8"
+    profile: default
 ```
+
+---
+
+### ClickHouse Configuration
+
+These values map directly to ClickHouse's XML configuration.
+
+| Value | Default | Description |
+|---|---|---|
+| `settings` | `compression/case/method: zstd` | Entries for `config.xml` (dot-path format) |
+| `profiles` | `{}` | User profiles (e.g. `default/max_memory_usage: 1000000000`) |
+| `quotas` | `{}` | Query quotas |
+| `files` | `{}` | Custom XML config files mounted into ClickHouse |
+
+**`settings` example:**
+```yaml
+settings:
+  compression/case/method: zstd
+  max_connections: "500"
+  logger/level: information
+```
+
+**`files` example** (custom dictionary):
+```yaml
+files:
+  dict1.xml: |
+    <clickhouse>
+      <dictionary>
+        <!-- config -->
+      </dictionary>
+    </clickhouse>
+```
+
+---
+
+### Resource Limits
+
+| Value | Default | Description |
+|---|---|---|
+| `resources` | `{}` | CPU/memory limits and requests for the ClickHouse container |
+
+```yaml
+resources:
+  limits:
+    cpu: 2000m
+    memory: 8Gi
+  requests:
+    cpu: 500m
+    memory: 2Gi
+```
+
+---
+
+### Monitoring
+
+Enables a Prometheus-compatible metrics endpoint in ClickHouse.
+
+| Value | Default | Description |
+|---|---|---|
+| `monitoring.enabled` | `false` | Enable Prometheus metrics |
+| `monitoring.prometheus.enabled` | `false` | Enable the Prometheus config block |
+| `monitoring.prometheus.port` | `9363` | Metrics scrape port |
+| `monitoring.serviceMonitor` | `false` | Create a `ServiceMonitor` for the Prometheus Operator |
+
+---
+
+### Backup
+
+Deploys [clickhouse-backup](https://github.com/Altinity/clickhouse-backup) as a sidecar alongside each ClickHouse pod. Exposes a REST API on port 7171 for triggering and managing backups. Uses the `admin` user credentials automatically.
+
+| Value | Default | Description |
+|---|---|---|
+| `backup.enabled` | `false` | Enable the backup sidecar |
+| `backup.image.repository` | `altinity/clickhouse-backup` | Backup image |
+| `backup.image.tag` | `"2"` | Image tag |
+| `backup.image.pullPolicy` | `IfNotPresent` | Pull policy |
+| `backup.s3.bucket` | `""` | S3 bucket name |
+| `backup.s3.path` | `"clickhouse/"` | Path prefix within the bucket |
+| `backup.s3.endpoint` | `""` | S3 endpoint URL. Leave empty for AWS S3. For SeaweedFS: `http://<release>-seaweedfs-s3:8333` |
+| `backup.s3.region` | `"us-east-1"` | S3 region |
+| `backup.s3.accessKey` | `""` | S3 access key (stored in a Kubernetes Secret) |
+| `backup.s3.secretKey` | `""` | S3 secret key (stored in a Kubernetes Secret) |
+| `backup.s3.forcePathStyle` | `true` | Required for non-AWS S3 (SeaweedFS, MinIO, etc.) |
+| `backup.keepRemote` | `7` | Number of remote backups to retain |
+| `backup.resources` | `{}` | CPU/memory limits and requests for the backup sidecar |
+
+**Common backup commands:**
+```bash
+# Create and upload a backup
+kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
+
+# List remote backups
+kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup list remote
+
+# Restore a backup
+kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup restore <backup-name>
+```
+
+---
+
+### SeaweedFS (Object Storage)
+
+Deploys [SeaweedFS](https://github.com/seaweedfs/seaweedfs) as an S3-compatible object store and configures ClickHouse to use it as an S3 disk for tiered or remote storage. Uses the [Bitnami SeaweedFS chart](https://github.com/bitnami/charts/tree/main/bitnami/seaweedfs).
+
+| Value | Default | Description |
+|---|---|---|
+| `seaweedfs.enabled` | `false` | Deploy SeaweedFS and configure ClickHouse S3 disk |
+| `seaweedfs.bucket` | `clickhouse` | Bucket ClickHouse reads/writes from |
+| `seaweedfs.accessKey` | `""` | S3 access key |
+| `seaweedfs.secretKey` | `""` | S3 secret key |
+| `seaweedfs.storagePolicy` | `s3_main` | ClickHouse storage policy name |
+| `seaweedfs.s3.enabled` | `true` | Enables the SeaweedFS S3 gateway (must stay `true`) |
+
+The SeaweedFS S3 gateway is reachable in-cluster at `http://<release>-seaweedfs-s3:8333`. The bucket must be created manually before ClickHouse can use it — see the post-install NOTES for the command.
+
+To use SeaweedFS as the backup target, set:
+```yaml
+backup:
+  s3:
+    endpoint: "http://<release>-seaweedfs-s3:8333"
+    bucket: "backups"
+```
+
+---
+
+### Tabix UI
+
+| Value | Default | Description |
+|---|---|---|
+| `tabix-ui.enabled` | `true` | Deploy the [Tabix](https://github.com/tabixio/tabix) web UI for ClickHouse |
+
+---
+
+### Pod Template (Advanced)
+
+Customise the ClickHouse pod spec. All fields are optional.
+
+| Value | Default | Description |
+|---|---|---|
+| `podTemplate.extraEnv` | `[]` | Extra environment variables for the ClickHouse container |
+| `podTemplate.extraVolumeMounts` | data PVC at `/var/lib/clickhouse` | Extra volume mounts for the ClickHouse container |
+| `podTemplate.extraVolumes` | `[]` | Extra volumes for the pod |
+| `podTemplate.sidecars` | busybox disk-checker | Additional sidecar containers |
+
+The default sidecar logs disk usage of `/var/lib/clickhouse` every 60 seconds. To disable it, set `podTemplate.sidecars: []`.
+
+---
+
+### Service Template (Advanced)
+
+| Value | Default | Description |
+|---|---|---|
+| `serviceTemplate.type` | `ClusterIP` | Kubernetes service type (`ClusterIP`, `NodePort`, `LoadBalancer`) |
+| `serviceTemplate.annotations` | `{}` | Annotations for the service |
+
+---
+
+## Example Configurations
+
+### Single-node development instance
+```yaml
+layout:
+  shardsCount: 1
+  replicasCount: 1
+coordination:
+  mode: none
+storage:
+  data:
+    size: 5Gi
+    storageClassName: standard
+tabix-ui:
+  enabled: true
+podTemplate:
+  sidecars: []
+```
+
+### Production HA cluster with Keeper
+```yaml
+layout:
+  shardsCount: 2
+  replicasCount: 2
+coordination:
+  mode: keeper
+  keeper:
+    replicasCount: 3
+    storage:
+      size: 20Gi
+      storageClassName: fast-ssd
+resources:
+  limits:
+    cpu: 4000m
+    memory: 16Gi
+  requests:
+    cpu: 2000m
+    memory: 8Gi
+storage:
+  data:
+    size: 500Gi
+    storageClassName: fast-ssd
+```
+
+### With backup to AWS S3
+```yaml
+backup:
+  enabled: true
+  s3:
+    bucket: my-clickhouse-backups
+    endpoint: ""        # empty = AWS S3
+    region: us-east-1
+    accessKey: AKIAIOSFODNN7EXAMPLE
+    secretKey: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+    forcePathStyle: false
+  keepRemote: 14
+```
+
+### With SeaweedFS for object storage and backup
+```yaml
+seaweedfs:
+  enabled: true
+  bucket: clickhouse-data
+
+backup:
+  enabled: true
+  s3:
+    bucket: clickhouse-backups
+    endpoint: "http://<release>-seaweedfs-s3:8333"
+```
+
+---
 
 ## Troubleshooting
 
-### CrashLoopBackOff
-If the pods are crashing:
-1. **Check Logs**: `kubectl logs <pod-name> -c clickhouse`
-2. **Verify Secret**: Ensure the secret exists and contains a valid password.
-3. **Zookeeper**: If `replicasCount > 1`, ensure the Zookeeper nodes defined in `values.yaml` are reachable.
+### ClickHouse pods not starting
+```bash
+kubectl logs <pod> -c clickhouse -n <namespace>
+kubectl describe pod <pod> -n <namespace>
+```
 
-### Pending Pods
-If pods are stuck in `Pending`:
-1. **Describe Pod**: `kubectl describe pod <pod-name>`
-2. **PVCs**: Check if the operator has successfully created the PVCs: `kubectl get pvc -l clickhouse.altinity.com/chi={{ .Release.Name }}-clickhouse-installation`
+### Keeper not healthy
+```bash
+kubectl get chk <release>-clickhouse-installation-keeper -n <namespace>
+kubectl logs <keeper-pod> -c clickhouse-keeper -n <namespace>
+```
+
+### PVCs stuck in Pending
+Check the storage class exists and has a provisioner:
+```bash
+kubectl get storageclass
+kubectl describe pvc -n <namespace>
+```
+
+### Backup sidecar not connecting
+Verify the admin secret exists and the sidecar can reach ClickHouse on localhost:9000:
+```bash
+kubectl exec <pod> -c clickhouse-backup -- clickhouse-backup list local
+```
+
+### Retrieve the admin password
+```bash
+kubectl get secret <release>-clickhouse-installation-admin -n <namespace> \
+  -o jsonpath='{.data.admin}' | base64 --decode
+```

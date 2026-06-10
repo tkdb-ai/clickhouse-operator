@@ -9,3 +9,7 @@ dependencies:
   - name: tabix-ui
     version: 0.1.0
     condition: tabix-ui.enabled
+  - name: seaweedfs
+    version: 6.0.1
+    repository: https://charts.bitnami.com/bitnami
+    condition: seaweedfs.enabled

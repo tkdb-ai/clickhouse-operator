@@ -28,12 +28,33 @@ storage:
     accessModes:
       - ReadWriteOnce
 
-# Zookeeper Configuration (Required for replication/sharding)
-zookeeper:
-  enabled: true
-  nodes:
-     - host: zookeeper.default.svc.cluster.local
-       port: 2181
+# Coordination — required for replication and distributed DDL
+# mode: keeper     → deploy a ClickHouseKeeperInstallation (recommended, no external deps)
+# mode: zookeeper  → point at an existing external ZooKeeper ensemble
+# mode: none       → disable coordination (single-node, no replication)
+coordination:
+  mode: keeper
+
+  keeper:
+    replicasCount: 1  # Use 3 for production HA (must be odd for quorum)
+    image:
+      repository: clickhouse/clickhouse-keeper
+      tag: "24.8"
+      pullPolicy: IfNotPresent
+    storage:
+      size: 10Gi
+      storageClassName: hostpath
+      accessModes:
+        - ReadWriteOnce
+    resources: {}
+      # limits:
+      #   cpu: 500m
+      #   memory: 512Mi
+
+  zookeeper:
+    nodes:
+      - host: zookeeper.default.svc.cluster.local
+        port: 2181
 
 # ClickHouse Settings (config.xml)
 settings: 
@@ -85,6 +106,37 @@ files: {}
 # A standalone UI to manage ClickHouse
 tabix-ui:
   enabled: true
+
+# Backup — clickhouse-backup sidecar (https://github.com/Altinity/clickhouse-backup)
+# Runs as a sidecar alongside ClickHouse, exposes a REST API on port 7171.
+# Trigger backups: kubectl exec <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
+backup:
+  enabled: false
+  image:
+    repository: altinity/clickhouse-backup
+    tag: "2"
+    pullPolicy: IfNotPresent
+  s3:
+    bucket: ""
+    path: "clickhouse/"
+    endpoint: ""          # Leave empty for AWS S3. For SeaweedFS: http://<release>-seaweedfs-s3:8333
+    region: "us-east-1"
+    accessKey: ""
+    secretKey: ""
+    forcePathStyle: true  # Required for non-AWS S3 (SeaweedFS, MinIO, etc.)
+  keepRemote: 7           # Number of remote backups to retain
+  resources: {}
+
+# SeaweedFS — optional S3-compatible object store
+# When enabled, deploys SeaweedFS and configures ClickHouse to use it as an S3 disk.
+seaweedfs:
+  enabled: false
+  bucket: clickhouse        # Bucket ClickHouse will read/write from
+  accessKey: ""             # S3 access key (leave empty for no-auth)
+  secretKey: ""             # S3 secret key (leave empty for no-auth)
+  storagePolicy: s3_main    # ClickHouse storage policy name to create
+  s3:
+    enabled: true           # Must be true — enables SeaweedFS S3 gateway
 
 # Advanced: Pod Template Extra Configuration
 podTemplate:
