@@ -39,11 +39,11 @@ coordination:
     replicasCount: 1  # Use 3 for production HA (must be odd for quorum)
     image:
       repository: clickhouse/clickhouse-keeper
-      tag: "24.8"
+      tag: "25.1"
       pullPolicy: IfNotPresent
     storage:
       size: 10Gi
-      storageClassName: hostpath
+      storageClassName: standard
       accessModes:
         - ReadWriteOnce
     resources: {}
