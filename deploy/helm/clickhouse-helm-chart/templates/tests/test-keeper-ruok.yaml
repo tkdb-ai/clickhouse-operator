@@ -1,0 +1,30 @@
+{{- if eq .Values.coordination.mode "keeper" }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-test-keeper-ruok
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test-keeper-ruok
+      image: busybox:1.35
+      command:
+        - sh
+        - -c
+        - |
+          set -e
+          HOST="keeper-{{ include "clickhouse.fullname" . }}-keeper"
+          PORT=2181
+          echo "Sending ruok to ${HOST}:${PORT}..."
+          RESPONSE=$(echo "ruok" | nc -w 3 "$HOST" "$PORT")
+          if [ "$RESPONSE" != "imok" ]; then
+            echo "FAIL: expected 'imok', got '${RESPONSE}'"
+            exit 1
+          fi
+          echo "PASS: Keeper responded with 'imok'"
+{{- end }}

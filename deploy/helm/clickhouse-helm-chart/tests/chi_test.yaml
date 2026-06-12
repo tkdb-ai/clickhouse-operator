@@ -1,0 +1,150 @@
+suite: ClickHouseInstallation
+templates:
+  - chi.yaml
+
+tests:
+  - it: renders with default values
+    asserts:
+      - isKind:
+          of: ClickHouseInstallation
+      - equal:
+          path: apiVersion
+          value: "clickhouse.altinity.com/v1"
+      - equal:
+          path: spec.configuration.clusters[0].layout.shardsCount
+          value: 1
+      - equal:
+          path: spec.configuration.clusters[0].layout.replicasCount
+          value: 2
+
+  - it: sets custom layout shards and replicas
+    set:
+      layout.shardsCount: 3
+      layout.replicasCount: 2
+    asserts:
+      - equal:
+          path: spec.configuration.clusters[0].layout.shardsCount
+          value: 3
+      - equal:
+          path: spec.configuration.clusters[0].layout.replicasCount
+          value: 2
+
+  - it: uses chart appVersion as default image tag
+    asserts:
+      - matchRegex:
+          path: spec.templates.podTemplates[0].spec.containers[0].image
+          pattern: "clickhouse/clickhouse-server:24.8"
+
+  - it: uses custom image tag when set
+    set:
+      image.tag: "23.3"
+    asserts:
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].image
+          value: "clickhouse/clickhouse-server:23.3"
+
+  - it: sets keeper zookeeper config when coordination mode is keeper
+    set:
+      coordination.mode: keeper
+    asserts:
+      - isNotNull:
+          path: spec.configuration.zookeeper.keeper
+      - isNull:
+          path: spec.configuration.zookeeper.nodes
+
+  - it: sets external zookeeper nodes when coordination mode is zookeeper
+    set:
+      coordination.mode: zookeeper
+      coordination.zookeeper.nodes:
+        - host: zk1.default.svc
+          port: 2181
+    asserts:
+      - equal:
+          path: spec.configuration.zookeeper.nodes[0].host
+          value: zk1.default.svc
+      - isNull:
+          path: spec.configuration.zookeeper.keeper
+
+  - it: omits zookeeper config when coordination mode is none
+    set:
+      coordination.mode: none
+    asserts:
+      - isNull:
+          path: spec.configuration.zookeeper
+
+  - it: does not include backup sidecar by default
+    asserts:
+      - notContains:
+          path: spec.templates.podTemplates[0].spec.containers
+          content:
+            name: clickhouse-backup
+
+  - it: includes backup sidecar when backup is enabled
+    set:
+      backup.enabled: true
+      backup.s3.bucket: my-bucket
+    asserts:
+      - contains:
+          path: spec.templates.podTemplates[0].spec.containers
+          content:
+            name: clickhouse-backup
+          any: true
+
+  - it: does not include monitoring block by default
+    asserts:
+      - isNull:
+          path: spec.monitoring
+
+  - it: includes monitoring block when monitoring is enabled
+    set:
+      monitoring.enabled: true
+    asserts:
+      - isNotNull:
+          path: spec.monitoring
+      - equal:
+          path: spec.monitoring.prometheus.port
+          value: 9363
+
+  - it: does not include log volume claim template by default
+    asserts:
+      - lengthEqual:
+          path: spec.templates.volumeClaimTemplates
+          count: 1
+
+  - it: includes log volume claim template when storage.log.enabled
+    set:
+      storage.log.enabled: true
+    asserts:
+      - lengthEqual:
+          path: spec.templates.volumeClaimTemplates
+          count: 2
+      - contains:
+          path: spec.templates.volumeClaimTemplates
+          content:
+            name: log-volumeclaim-template
+          any: true
+
+  - it: sets data storage size from values
+    set:
+      storage.data.size: 50Gi
+    asserts:
+      - equal:
+          path: spec.templates.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 50Gi
+
+  - it: includes seaweedfs storage config when seaweedfs is enabled
+    set:
+      seaweedfs.enabled: true
+      seaweedfs.bucket: mybucket
+      seaweedfs.storagePolicy: s3_main
+    asserts:
+      - isNotNull:
+          path: spec.configuration.files
+
+  - it: respects fullnameOverride
+    set:
+      fullnameOverride: my-clickhouse
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-clickhouse

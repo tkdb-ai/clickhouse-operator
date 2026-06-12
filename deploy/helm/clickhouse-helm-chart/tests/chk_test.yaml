@@ -1,0 +1,129 @@
+suite: ClickHouseKeeperInstallation
+templates:
+  - chk.yaml
+
+tests:
+  - it: renders keeper when coordination mode is keeper
+    set:
+      coordination.mode: keeper
+    asserts:
+      - isKind:
+          of: ClickHouseKeeperInstallation
+      - equal:
+          path: apiVersion
+          value: "clickhouse-keeper.altinity.com/v1"
+
+  - it: does not render when coordination mode is zookeeper
+    set:
+      coordination.mode: zookeeper
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: does not render when coordination mode is none
+    set:
+      coordination.mode: none
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: sets keeper replica count from values
+    set:
+      coordination.mode: keeper
+      coordination.keeper.replicasCount: 3
+    asserts:
+      - equal:
+          path: spec.configuration.clusters[0].layout.replicasCount
+          value: 3
+
+  - it: uses keeper image tag from values
+    set:
+      coordination.mode: keeper
+    asserts:
+      - matchRegex:
+          path: spec.templates.podTemplates[0].spec.containers[0].image
+          pattern: "clickhouse/clickhouse-keeper:25.1"
+
+  - it: falls back to chart appVersion when keeper image tag is empty
+    set:
+      coordination.mode: keeper
+      coordination.keeper.image.tag: ""
+    asserts:
+      - matchRegex:
+          path: spec.templates.podTemplates[0].spec.containers[0].image
+          pattern: "clickhouse/clickhouse-keeper:24.8"
+
+  - it: uses custom keeper image tag when set
+    set:
+      coordination.mode: keeper
+      coordination.keeper.image.tag: "23.3"
+    asserts:
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].image
+          value: "clickhouse/clickhouse-keeper:23.3"
+
+  - it: does not set pod anti-affinity with single replica
+    set:
+      coordination.mode: keeper
+      coordination.keeper.replicasCount: 1
+    asserts:
+      - isNull:
+          path: spec.templates.podTemplates[0].spec.affinity
+
+  - it: sets pod anti-affinity with multiple replicas
+    set:
+      coordination.mode: keeper
+      coordination.keeper.replicasCount: 3
+    asserts:
+      - isNotNull:
+          path: spec.templates.podTemplates[0].spec.affinity.podAntiAffinity
+
+  - it: sets keeper storage size from values
+    set:
+      coordination.mode: keeper
+      coordination.keeper.storage.size: 20Gi
+    asserts:
+      - equal:
+          path: spec.templates.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 20Gi
+
+  - it: keeper name is derived from release fullname
+    set:
+      coordination.mode: keeper
+      fullnameOverride: my-clickhouse
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-clickhouse-keeper
+
+  - it: liveness probe uses pgrep clickhouse-keeper
+    set:
+      coordination.mode: keeper
+    asserts:
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.exec.command
+          value: ["pgrep", "clickhouse-keeper"]
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.failureThreshold
+          value: 12
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.initialDelaySeconds
+          value: 5
+
+  - it: readiness probe uses pgrep clickhouse-keeper
+    set:
+      coordination.mode: keeper
+    asserts:
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].readinessProbe.exec.command
+          value: ["pgrep", "clickhouse-keeper"]
+      - equal:
+          path: spec.templates.podTemplates[0].spec.containers[0].readinessProbe.failureThreshold
+          value: 3
+
+  - it: probes are not rendered when coordination mode is not keeper
+    set:
+      coordination.mode: zookeeper
+    asserts:
+      - hasDocuments:
+          count: 0
