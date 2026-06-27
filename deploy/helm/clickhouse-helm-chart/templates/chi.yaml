@@ -57,26 +57,35 @@ spec:
       {{- if .Values.files }}
       {{- toYaml .Values.files | nindent 6 }}
       {{- end }}
-      {{- if .Values.seaweedfs.enabled }}
+      {{- if .Values.garage.enabled }}
       storage_config.xml: |
         <clickhouse>
           <storage_configuration>
             <disks>
+              <!-- Credentials come from the garage-backup secret (created by the
+                   post-install hook with the real GK-prefixed key) and are injected
+                   into the pod via podTemplate.extraEnv; from_env resolves them at
+                   clickhouse-server startup. skip_access_check avoids a chicken-and-egg
+                   failure when clickhouse starts before the hook has granted bucket
+                   permissions. -->
               <s3_disk>
                 <type>s3</type>
-                <endpoint>http://{{ .Release.Name }}-seaweedfs-s3:8333/{{ .Values.seaweedfs.bucket }}/</endpoint>
-                <access_key_id>{{ .Values.seaweedfs.accessKey }}</access_key_id>
-                <secret_access_key>{{ .Values.seaweedfs.secretKey }}</secret_access_key>
+                <endpoint>http://{{ .Release.Name }}-garage:3900/{{ .Values.garage.bucket }}/</endpoint>
+                <access_key_id from_env="S3_ACCESS_KEY_ID" />
+                <secret_access_key from_env="S3_SECRET_ACCESS_KEY" />
+                <region>garage</region>
+                <skip_access_check>1</skip_access_check>
+                <use_path_style_url>1</use_path_style_url>
               </s3_disk>
             </disks>
             <policies>
-              <{{ .Values.seaweedfs.storagePolicy }}>
+              <{{ .Values.garage.storagePolicy }}>
                 <volumes>
                   <main>
                     <disk>s3_disk</disk>
                   </main>
                 </volumes>
-              </{{ .Values.seaweedfs.storagePolicy }}>
+              </{{ .Values.garage.storagePolicy }}>
             </policies>
           </storage_configuration>
         </clickhouse>

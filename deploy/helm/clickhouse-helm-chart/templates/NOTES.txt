@@ -32,8 +32,8 @@
 {{- end }}
 {{- if .Values.backup.enabled }}
 
-{{ if .Values.seaweedfs.enabled -}}
-TIP: SeaweedFS is enabled — set backup.s3.endpoint=http://{{ .Release.Name }}-seaweedfs-s3:8333 and backup.s3.bucket to use it as your backup target.
+{{ if .Values.garage.enabled -}}
+TIP: Garage is enabled — set backup.s3.endpoint=http://{{ .Release.Name }}-garage:3900 and backup.s3.bucket to use it as your backup target.
 {{ end -}}
 Backup REST API (port 7171) is available on each ClickHouse pod.
 
@@ -46,14 +46,35 @@ Backup REST API (port 7171) is available on each ClickHouse pod.
    Restore a backup:
    kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup restore <backup-name>
 {{- end }}
-{{- if .Values.seaweedfs.enabled }}
+{{- if .Values.garage.enabled }}
 
-6. SeaweedFS S3 is enabled.
-   Endpoint (in-cluster): http://{{ .Release.Name }}-seaweedfs-s3:8333
-   Bucket:                 {{ .Values.seaweedfs.bucket }}
-   ClickHouse storage policy '{{ .Values.seaweedfs.storagePolicy }}' is configured via s3_disk.
+Garage S3 is enabled.
+   Endpoint (in-cluster): http://{{ .Release.Name }}-garage:3900
+   Admin API:             http://{{ .Release.Name }}-garage:3903
+   Bucket:                 {{ .Values.garage.bucket }}
+   Credentials secret:    garage-backup
+   ClickHouse storage policy '{{ .Values.garage.storagePolicy }}' is configured via s3_disk.
 
-   NOTE: You must create the bucket before ClickHouse can use it:
-   kubectl exec -n {{ .Release.Namespace }} deploy/{{ .Release.Name }}-seaweedfs-s3 -- \
-     s3cmd mb s3://{{ .Values.seaweedfs.bucket }}
+   The garage-setup post-install hook configures the layout, creates the
+   bucket, and imports the access key automatically.
+
+   List bucket contents:
+   kubectl run -n {{ .Release.Namespace }} garage-ls --rm -i --restart=Never --image=amazon/aws-cli \
+     --env=AWS_ACCESS_KEY_ID=$(kubectl get secret -n {{ .Release.Namespace }} garage-backup -o jsonpath='{.data.access-key-id}' | base64 -d) \
+     --env=AWS_SECRET_ACCESS_KEY=$(kubectl get secret -n {{ .Release.Namespace }} garage-backup -o jsonpath='{.data.secret-access-key}' | base64 -d) \
+     --env=AWS_REGION=garage \
+     -- --endpoint-url http://{{ .Release.Name }}-garage:3900 s3 ls s3://{{ .Values.garage.bucket }}/
+{{- else }}
+
+Garage is disabled. Set garage.enabled=true to deploy an in-cluster S3-compatible store for backups and tiered storage.
+{{- end }}
+{{- if (index .Values "tabix-ui").enabled }}
+
+Tabix UI is enabled.
+   Access the web UI:
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-tabix-ui 8080:80
+   Then open: http://localhost:8080
+{{- else }}
+
+Tabix UI is disabled. Set tabix-ui.enabled=true to deploy the ClickHouse web UI.
 {{- end }}

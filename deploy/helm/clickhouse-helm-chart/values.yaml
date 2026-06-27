@@ -1,5 +1,9 @@
 # Default values for clickhouse-installation.
 
+global:
+  security:
+    allowInsecureImages: true
+
 nameOverride: ''
 fullnameOverride: ''
 
@@ -132,30 +136,66 @@ backup:
   s3:
     bucket: ""
     path: "clickhouse/"
-    endpoint: ""          # Leave empty for AWS S3. For SeaweedFS: http://<release>-seaweedfs-s3:8333
+    endpoint: ""          # Leave empty for AWS S3. For bundled Garage: http://<release>-garage:3900
     region: "us-east-1"
     accessKey: ""
     secretKey: ""
-    forcePathStyle: true  # Required for non-AWS S3 (SeaweedFS, MinIO, etc.)
+    forcePathStyle: true  # Required for non-AWS S3 (Garage, MinIO, etc.)
   keepRemote: 7           # Number of remote backups to retain
   resources: {}
 
-# SeaweedFS — optional S3-compatible object store
-# When enabled, deploys SeaweedFS and configures ClickHouse to use it as an S3 disk.
-seaweedfs:
-  enabled: false
+# Garage — bundled S3-compatible object store
+# When enabled, deploys Garage (lightweight single-binary S3 server, ~35MB RSS)
+# and configures ClickHouse to use it as an S3 disk for tiered storage.
+# A post-install hook configures the cluster layout, creates the bucket,
+# generates a key, and writes credentials to the `garage-backup` secret.
+#
+# Garage requires its own GK<24-hex> key format, so the key is auto-generated
+# by the setup hook. ClickHouse reads it via env vars injected from the secret
+# (see podTemplate.extraEnv below). The storage_config.xml uses from_env to
+# pick up the credentials at startup.
+garage:
+  enabled: true
   bucket: clickhouse        # Bucket ClickHouse will read/write from
-  accessKey: ""             # S3 access key (leave empty for no-auth)
-  secretKey: ""             # S3 secret key (leave empty for no-auth)
   storagePolicy: s3_main    # ClickHouse storage policy name to create
-  s3:
-    enabled: true           # Must be true — enables SeaweedFS S3 gateway
+
+  # -- Replication factor (1 = single-node, no redundancy)
+  replicationFactor: 1
+
+  # -- RPC secret for inter-node communication (32-byte hex string)
+  rpcSecret: "1799bccfd7411eddcf9ebd1e76e6cb37cb572f4ce8c8e7b6ec0ecc4ae9b4a8d1"
+
+  # -- Admin API token (required to enable admin endpoints)
+  adminToken: "garage-admin-token-change-me"
+
+  # -- Metrics API token (for /metrics endpoint)
+  metricsToken: "garage-metrics-token-change-me"
+
+  # -- Persistent storage
+  persistence:
+    meta:
+      size: 256Mi
+    data:
+      size: 20Gi
 
 # Advanced: Pod Template Extra Configuration
 podTemplate:
-  # extraEnv:
-  #   - name: SOME_VAR
-  #     value: "some_value"
+  # S3 disk credentials are injected from the Garage backup secret so the
+  # storage_config.xml's from_env references resolve at clickhouse-server
+  # startup. The secret name is fixed (`garage-backup`) so this block works
+  # for any release name. If you set garage.enabled=false, remove this
+  # extraEnv block (the referenced secret will not exist).
+  extraEnv:
+    - name: S3_ACCESS_KEY_ID
+      valueFrom:
+        secretKeyRef:
+          name: garage-backup
+          key: access-key-id
+    - name: S3_SECRET_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: garage-backup
+          key: secret-access-key
   extraVolumeMounts:
     - name: data-volumeclaim-template
       mountPath: /var/lib/clickhouse

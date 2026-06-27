@@ -132,11 +132,11 @@ tests:
           path: spec.templates.volumeClaimTemplates[0].spec.resources.requests.storage
           value: 50Gi
 
-  - it: includes seaweedfs storage config when seaweedfs is enabled
+  - it: includes garage storage config when garage is enabled
     set:
-      seaweedfs.enabled: true
-      seaweedfs.bucket: mybucket
-      seaweedfs.storagePolicy: s3_main
+      garage.enabled: true
+      garage.bucket: mybucket
+      garage.storagePolicy: s3_main
     asserts:
       - isNotNull:
           path: spec.configuration.files

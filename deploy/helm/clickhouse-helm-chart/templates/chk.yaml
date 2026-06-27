@@ -44,19 +44,19 @@ spec:
                 {{- toYaml .Values.coordination.keeper.resources | nindent 16 }}
               {{- end }}
               livenessProbe:
-                exec:
-                  command: ["pgrep", "clickhouse-keeper"]
-                initialDelaySeconds: 5
-                periodSeconds: 5
-                timeoutSeconds: 1
-                failureThreshold: 12
+                tcpSocket:
+                  port: 2181
+                initialDelaySeconds: 30
+                periodSeconds: 10
+                timeoutSeconds: 5
+                failureThreshold: 6
                 successThreshold: 1
               readinessProbe:
-                exec:
-                  command: ["pgrep", "clickhouse-keeper"]
-                initialDelaySeconds: 5
-                periodSeconds: 5
-                timeoutSeconds: 1
+                tcpSocket:
+                  port: 2181
+                initialDelaySeconds: 15
+                periodSeconds: 10
+                timeoutSeconds: 5
                 failureThreshold: 3
                 successThreshold: 1
           securityContext:

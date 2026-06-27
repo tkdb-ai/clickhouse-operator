@@ -1,0 +1,6 @@
+dependencies:
+- name: tabix-ui
+  repository: ""
+  version: 0.1.0
+digest: sha256:fb741522f4ee19f816c1649f2a7ca62b48c18c10593bb91c3ea099ce3e6de651
+generated: "2026-06-18T01:50:47.310594276Z"

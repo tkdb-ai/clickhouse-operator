@@ -204,11 +204,11 @@ Deploys [clickhouse-backup](https://github.com/Altinity/clickhouse-backup) as a 
 | `backup.image.pullPolicy` | `IfNotPresent` | Pull policy |
 | `backup.s3.bucket` | `""` | S3 bucket name |
 | `backup.s3.path` | `"clickhouse/"` | Path prefix within the bucket |
-| `backup.s3.endpoint` | `""` | S3 endpoint URL. Leave empty for AWS S3. For SeaweedFS: `http://<release>-seaweedfs-s3:8333` |
+| `backup.s3.endpoint` | `""` | S3 endpoint URL. Leave empty for AWS S3. For bundled Garage: `http://<release>-garage:3900` |
 | `backup.s3.region` | `"us-east-1"` | S3 region |
 | `backup.s3.accessKey` | `""` | S3 access key (stored in a Kubernetes Secret) |
 | `backup.s3.secretKey` | `""` | S3 secret key (stored in a Kubernetes Secret) |
-| `backup.s3.forcePathStyle` | `true` | Required for non-AWS S3 (SeaweedFS, MinIO, etc.) |
+| `backup.s3.forcePathStyle` | `true` | Required for non-AWS S3 (Garage, MinIO, etc.) |
 | `backup.keepRemote` | `7` | Number of remote backups to retain |
 | `backup.resources` | `{}` | CPU/memory limits and requests for the backup sidecar |
 
@@ -226,27 +226,32 @@ kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup rest
 
 ---
 
-### SeaweedFS (Object Storage)
+### Garage (Object Storage)
 
-Deploys [SeaweedFS](https://github.com/seaweedfs/seaweedfs) as an S3-compatible object store and configures ClickHouse to use it as an S3 disk for tiered or remote storage. Uses the [Bitnami SeaweedFS chart](https://github.com/bitnami/charts/tree/main/bitnami/seaweedfs).
+Deploys [Garage](https://garagehq.deuxfleurs.fr/) as an S3-compatible object store and configures ClickHouse to use it as an S3 disk for tiered or remote storage. Garage is a lightweight (~35MB RSS) single-binary server and ships as inline templates in this chart — no Helm subchart dependency required.
 
 | Value | Default | Description |
 |---|---|---|
-| `seaweedfs.enabled` | `false` | Deploy SeaweedFS and configure ClickHouse S3 disk |
-| `seaweedfs.bucket` | `clickhouse` | Bucket ClickHouse reads/writes from |
-| `seaweedfs.accessKey` | `""` | S3 access key |
-| `seaweedfs.secretKey` | `""` | S3 secret key |
-| `seaweedfs.storagePolicy` | `s3_main` | ClickHouse storage policy name |
-| `seaweedfs.s3.enabled` | `true` | Enables the SeaweedFS S3 gateway (must stay `true`) |
+| `garage.enabled` | `true` | Deploy Garage and configure ClickHouse S3 disk |
+| `garage.bucket` | `clickhouse` | Bucket ClickHouse reads/writes from (auto-created by setup hook) |
+| `garage.storagePolicy` | `s3_main` | ClickHouse storage policy name |
+| `garage.replicationFactor` | `1` | Replication factor (1 = single-node, no redundancy) |
+| `garage.rpcSecret` | (default hex) | 32-byte hex string for inter-node RPC |
+| `garage.adminToken` | `"garage-admin-token-change-me"` | Token for admin API (required) |
+| `garage.metricsToken` | `"garage-metrics-token-change-me"` | Token for `/metrics` endpoint |
+| `garage.persistence.meta.size` | `256Mi` | Metadata volume size |
+| `garage.persistence.data.size` | `20Gi` | Data volume size |
 
-The SeaweedFS S3 gateway is reachable in-cluster at `http://<release>-seaweedfs-s3:8333`. The bucket must be created manually before ClickHouse can use it — see the post-install NOTES for the command.
+The Garage S3 API is reachable in-cluster at `http://<release>-garage:3900`. A post-install hook configures the cluster layout, creates the bucket, generates an access key (Garage requires its own `GK<24-hex>` ID format, so the key is not user-specified), and writes credentials to a Secret named `garage-backup` in the release namespace. The chart's default `podTemplate.extraEnv` injects those credentials into the ClickHouse container as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`; the storage_config.xml references them via `from_env`.
 
-To use SeaweedFS as the backup target, set:
+To use Garage as the backup target, set:
 ```yaml
 backup:
   s3:
-    endpoint: "http://<release>-seaweedfs-s3:8333"
-    bucket: "backups"
+    endpoint: "http://<release>-garage:3900"
+    bucket: "clickhouse"
+    region: "garage"
+    forcePathStyle: true
 ```
 
 ---
@@ -341,17 +346,19 @@ backup:
   keepRemote: 14
 ```
 
-### With SeaweedFS for object storage and backup
+### With Garage for object storage and backup
 ```yaml
-seaweedfs:
+garage:
   enabled: true
   bucket: clickhouse-data
 
 backup:
   enabled: true
   s3:
-    bucket: clickhouse-backups
-    endpoint: "http://<release>-seaweedfs-s3:8333"
+    bucket: clickhouse-data
+    endpoint: "http://<release>-garage:3900"
+    region: "garage"
+    forcePathStyle: true
 ```
 
 ---
