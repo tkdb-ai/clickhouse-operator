@@ -8,9 +8,27 @@ Enables Claude Code to query ClickHouse directly via natural language during a s
 - Node.js / npx available
 - A running ClickHouse instance
 
-## Configuration
+## Quick start
 
-Add the following to `~/.claude/settings.json` under `mcpServers`:
+Run the interactive setup script from the repo root — it prompts for connection
+details, tests the endpoint, and merges the MCP server into `~/.claude/settings.json`
+without clobbering other servers:
+
+```bash
+./setup-mcp.sh
+```
+
+If you're running ClickHouse via the Helm chart in minikube, the script will
+auto-suggest the minikube IP and NodePort. For non-interactive use:
+
+```bash
+CH_HOST=192.168.49.2 CH_PORT=30941 CH_USER=admin CH_PASSWORD=... \
+  ./setup-mcp.sh --yes
+```
+
+## Manual configuration
+
+Alternatively, add the following to `~/.claude/settings.json` under `mcpServers`:
 
 ```json
 {
