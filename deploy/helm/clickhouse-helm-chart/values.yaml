@@ -104,12 +104,12 @@ readinessProbe:
 # Monitoring
 # Enables prometheus monitoring endpoint in ClickHouse
 monitoring:
-  enabled: false
+  enabled: true
   # Whether to create a ServiceMonitor for the Prometheus Operator
   serviceMonitor: false
   # Prometheus endpoint configuration
   prometheus:
-    enabled: false
+    enabled: true
     port: 9363
 
 # Custom Configuration Files
@@ -126,23 +126,31 @@ tabix-ui:
 
 # Backup — clickhouse-backup sidecar (https://github.com/Altinity/clickhouse-backup)
 # Runs as a sidecar alongside ClickHouse, exposes a REST API on port 7171.
-# Trigger backups: kubectl exec <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
+# When garage.enabled=true, credentials are read automatically from the garage-backup secret.
+# Trigger manually: kubectl exec <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
 backup:
-  enabled: false
+  enabled: true
   image:
     repository: altinity/clickhouse-backup
-    tag: "2"
+    tag: "2.7.2"
     pullPolicy: IfNotPresent
   s3:
-    bucket: ""
-    path: "clickhouse/"
-    endpoint: ""          # Leave empty for AWS S3. For bundled Garage: http://<release>-garage:3900
-    region: "us-east-1"
-    accessKey: ""
+    bucket: "clickhouse"
+    path: "clickhouse-backup/"
+    endpoint: ""          # Leave empty to auto-use Garage when garage.enabled=true
+    region: "garage"
+    accessKey: ""         # Ignored when garage.enabled=true (credentials come from garage-backup secret)
     secretKey: ""
     forcePathStyle: true  # Required for non-AWS S3 (Garage, MinIO, etc.)
   keepRemote: 7           # Number of remote backups to retain
-  resources: {}
+  schedule: "0 2 * * *"  # Daily at 2am UTC
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
 
 # Garage — bundled S3-compatible object store
 # When enabled, deploys Garage (lightweight single-binary S3 server, ~35MB RSS)

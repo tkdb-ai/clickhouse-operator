@@ -57,6 +57,19 @@ spec:
       {{- if .Values.files }}
       {{- toYaml .Values.files | nindent 6 }}
       {{- end }}
+      {{- if .Values.monitoring.enabled }}
+      prometheus.xml: |
+        <clickhouse>
+          <prometheus>
+            <endpoint>/metrics</endpoint>
+            <port>{{ .Values.monitoring.prometheus.port | default 9363 }}</port>
+            <metrics>true</metrics>
+            <events>true</events>
+            <asynchronous_metrics>true</asynchronous_metrics>
+            <status_info>true</status_info>
+          </prometheus>
+        </clickhouse>
+      {{- end }}
       {{- if .Values.garage.enabled }}
       storage_config.xml: |
         <clickhouse>
@@ -99,20 +112,16 @@ spec:
           shardsCount: {{ .Values.layout.shardsCount }}
           replicasCount: {{ .Values.layout.replicasCount }}
 
-  {{- if and .Values.monitoring .Values.monitoring.enabled }}
-  # Enables prometheus monitoring endpoint
-  monitoring:
-    prometheus:
-      enabled: {{ default true .Values.monitoring.prometheus.enabled }}
-      {{- if .Values.monitoring.serviceMonitor }}
-      serviceMonitor: true
-      {{- end }}
-      port: {{ default 9363 .Values.monitoring.prometheus.port }}
-  {{- end }}
-
   templates:
     podTemplates:
       - name: main-pod-template
+        {{- if .Values.monitoring.enabled }}
+        metadata:
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: {{ .Values.monitoring.prometheus.port | default 9363 | quote }}
+            prometheus.io/path: "/metrics"
+        {{- end }}
         spec:
           containers:
             - name: clickhouse
@@ -173,7 +182,11 @@ spec:
                 - name: S3_PATH
                   value: {{ .Values.backup.s3.path | quote }}
                 - name: S3_ENDPOINT
+                  {{- if .Values.garage.enabled }}
+                  value: "http://{{ .Release.Name }}-garage:3900"
+                  {{- else }}
                   value: {{ .Values.backup.s3.endpoint | quote }}
+                  {{- end }}
                 - name: S3_REGION
                   value: {{ .Values.backup.s3.region | quote }}
                 - name: S3_FORCE_PATH_STYLE
@@ -185,9 +198,29 @@ spec:
                     secretKeyRef:
                       name: {{ include "clickhouse.fullname" . }}-admin
                       key: admin
-              envFrom:
-                - secretRef:
-                    name: {{ include "clickhouse.fullname" . }}-backup
+                {{- if .Values.garage.enabled }}
+                - name: S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: garage-backup
+                      key: access-key-id
+                - name: S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: garage-backup
+                      key: secret-access-key
+                {{- else }}
+                - name: S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "clickhouse.fullname" . }}-backup
+                      key: S3_ACCESS_KEY
+                - name: S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "clickhouse.fullname" . }}-backup
+                      key: S3_SECRET_KEY
+                {{- end }}
               {{- if .Values.backup.resources }}
               resources:
                 {{- toYaml .Values.backup.resources | nindent 16 }}

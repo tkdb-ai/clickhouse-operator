@@ -12,12 +12,28 @@
 # If none is found, the script tells you which to install and exits.
 #
 # Usage:
-#   ./setup-mcp.sh                # interactive
+#   ./setup-mcp.sh                # interactive — auto-detects host/port/password where possible
 #   CH_HOST=... CH_PORT=... CH_USER=... CH_PASSWORD=... ./setup-mcp.sh --yes
 #
 # Env overrides (skip the matching prompt when set):
-#   CH_HOST, CH_PORT, CH_USER, CH_PASSWORD, CH_ALLOW_WRITE (true|false)
-#   HELM_RELEASE (kubectl namespace lookup — defaults to "chi")
+#   CH_HOST        ClickHouse HTTP host
+#   CH_PORT        ClickHouse HTTP port (default 8123)
+#   CH_USER        ClickHouse user (default: auto-detected or "default")
+#   CH_PASSWORD    ClickHouse password
+#   CH_ALLOW_WRITE Allow write queries via MCP (true|false, default false)
+#   CH_NAMESPACE   Kubernetes namespace to search (default: auto-detect)
+#   HELM_RELEASE   CHI release name prefix for secret lookup (default: ch1)
+#
+# Host/port detection order (first match wins):
+#   1. CH_HOST / CH_PORT env vars
+#   2. LoadBalancer service external IP in the cluster
+#   3. NodePort service + a cluster node IP
+#   4. minikube IP + NodePort
+#   5. localhost:8123 (assumes a port-forward is already running)
+#
+# Password detection (if CH_PASSWORD is not set):
+#   1. Kubernetes secret <HELM_RELEASE>-clickhouse-installation-admin (key: admin)
+#   2. If no secret access or no admin user, falls back to interactive prompt
 
 set -euo pipefail
 
@@ -67,24 +83,97 @@ fi
 
 mkdir -p "$(dirname "$SETTINGS_FILE")"
 
-# --- detect a minikube NodePort and the helm-created admin secret ---------
+# --- auto-detect host, port, user, and password ---------------------------
 suggest_host=""
 suggest_port=""
+suggest_user=""
 suggest_password=""
-HELM_RELEASE="${HELM_RELEASE:-chi}"
+HELM_RELEASE="${HELM_RELEASE:-ch1}"
+CH_NAMESPACE="${CH_NAMESPACE:-}"
 
-if command -v kubectl >/dev/null && command -v minikube >/dev/null && minikube status >/dev/null 2>&1; then
-  suggest_host="$(minikube ip 2>/dev/null || true)"
-  suggest_port="$(kubectl get svc -A -o json 2>/dev/null \
-    | jq -r '.items[] | select(.spec.type=="NodePort") | .spec.ports[]? | select(.port==8123 or .name=="http") | .nodePort' \
-    | head -n1)"
-  # Helm chart stores admin password in a secret named "<release>-admin" with key "admin"
-  suggest_password="$(kubectl get secret -A -o json 2>/dev/null \
-    | jq -r --arg r "$HELM_RELEASE" '.items[] | select(.metadata.name | endswith("-admin")) | select(.metadata.name | startswith($r)) | .data.admin' \
-    | head -n1 | { read -r b64 || true; [ -n "${b64:-}" ] && echo "$b64" | base64 -d || true; })"
+if command -v kubectl >/dev/null; then
+  # Determine namespace — use provided or find one containing a CHI secret
+  if [ -z "$CH_NAMESPACE" ]; then
+    CH_NAMESPACE="$(kubectl get secret -A -o json 2>/dev/null \
+      | jq -r --arg r "$HELM_RELEASE" \
+        '.items[] | select(.metadata.name == ($r + "-clickhouse-installation-admin")) | .metadata.namespace' \
+      | head -n1)"
+  fi
+
+  # 1. LoadBalancer external IP
+  if [ -z "$suggest_host" ] && [ -n "$CH_NAMESPACE" ]; then
+    lb=$(kubectl get svc -n "$CH_NAMESPACE" -o json 2>/dev/null \
+      | jq -r '.items[] | select(.spec.type=="LoadBalancer") |
+          .status.loadBalancer.ingress[0]? | (.ip // .hostname)' \
+      | grep -v null | head -n1)
+    if [ -n "$lb" ]; then
+      suggest_host="$lb"
+      suggest_port="$(kubectl get svc -n "$CH_NAMESPACE" -o json 2>/dev/null \
+        | jq -r '.items[] | select(.spec.type=="LoadBalancer") | .spec.ports[]? |
+            select(.port==8123 or .name=="http") | .port' | head -n1)"
+      info "Detected LoadBalancer: $suggest_host:${suggest_port:-8123}"
+    fi
+  fi
+
+  # 2. NodePort + a cluster node IP (works on any k8s, not just minikube)
+  if [ -z "$suggest_host" ]; then
+    ns_flag="${CH_NAMESPACE:+-n $CH_NAMESPACE}"
+    nodeport=$(kubectl get svc ${ns_flag:--A} -o json 2>/dev/null \
+      | jq -r '.items[] | select(.spec.type=="NodePort") | .spec.ports[]? |
+          select(.port==8123 or .name=="http") | .nodePort' \
+      | head -n1)
+    if [ -n "$nodeport" ]; then
+      node_ip=$(kubectl get nodes -o json 2>/dev/null \
+        | jq -r '.items[0].status.addresses[] | select(.type=="ExternalIP" or .type=="InternalIP") | .address' \
+        | head -n1)
+      if [ -n "$node_ip" ]; then
+        suggest_host="$node_ip"
+        suggest_port="$nodeport"
+        info "Detected NodePort: $suggest_host:$suggest_port"
+      fi
+    fi
+  fi
+
+  # 3. minikube (fallback for local dev)
+  if [ -z "$suggest_host" ] && command -v minikube >/dev/null && minikube status >/dev/null 2>&1; then
+    suggest_host="$(minikube ip 2>/dev/null || true)"
+    suggest_port="$(kubectl get svc -A -o json 2>/dev/null \
+      | jq -r '.items[] | select(.spec.type=="NodePort") | .spec.ports[]? |
+          select(.port==8123 or .name=="http") | .nodePort' \
+      | head -n1)"
+    [ -n "$suggest_host" ] && info "Detected minikube: $suggest_host:${suggest_port:-8123}"
+  fi
+
+  # Password: try the admin secret; silently skip if no permission
+  secret_json="$(kubectl get secret -A -o json 2>/dev/null \
+    | jq -r --arg r "$HELM_RELEASE" \
+        'select(.items) | .items[] |
+         select(.metadata.name == ($r + "-clickhouse-installation-admin"))' \
+    | head -c 4096)"
+  if [ -n "$secret_json" ]; then
+    b64="$(echo "$secret_json" | jq -r '.data.admin // empty')"
+    if [ -n "$b64" ]; then
+      suggest_password="$(echo "$b64" | base64 -d)"
+      suggest_user="admin"
+      info "Detected admin credentials from secret ${HELM_RELEASE}-clickhouse-installation-admin"
+    fi
+  fi
+
+  if [ -z "$suggest_password" ]; then
+    warn "Could not read the admin secret (no permission, or secret not found)."
+    warn "You can still connect with any valid ClickHouse user — enter credentials manually below."
+  fi
 fi
+
 : "${suggest_host:=localhost}"
 : "${suggest_port:=8123}"
+: "${suggest_user:=default}"
+
+# If host is still localhost, offer a port-forward hint
+if [ "$suggest_host" = "localhost" ] && command -v kubectl >/dev/null && [ -z "${CH_HOST:-}" ]; then
+  info "No external endpoint detected. If ClickHouse is in Kubernetes, run this first:"
+  info "  kubectl port-forward -n ${CH_NAMESPACE:-<namespace>} svc/<clickhouse-svc> 8123:8123"
+fi
 
 # --- prompts (or env) -----------------------------------------------------
 prompt() {
@@ -116,7 +205,7 @@ prompt_secret() {
 info "Configuring ClickHouse MCP server for Claude Code"
 prompt CH_HOST "ClickHouse host" "$suggest_host"
 prompt CH_PORT "ClickHouse HTTP port" "$suggest_port"
-prompt CH_USER "ClickHouse user" "admin"
+prompt CH_USER "ClickHouse user" "$suggest_user"
 prompt_secret CH_PASSWORD "ClickHouse password (hidden)" "$suggest_password"
 prompt CH_ALLOW_WRITE "Allow write access (true/false)" "false"
 

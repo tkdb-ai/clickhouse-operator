@@ -181,14 +181,32 @@ resources:
 
 ### Monitoring
 
-Enables a Prometheus-compatible metrics endpoint in ClickHouse.
+Enables a Prometheus-compatible metrics endpoint in ClickHouse. When enabled, a `prometheus.xml` config file is injected into ClickHouse and pod scrape annotations (`prometheus.io/scrape`, `prometheus.io/port`, `prometheus.io/path`) are added so a standard Prometheus installation auto-discovers the pods.
 
 | Value | Default | Description |
 |---|---|---|
-| `monitoring.enabled` | `false` | Enable Prometheus metrics |
-| `monitoring.prometheus.enabled` | `false` | Enable the Prometheus config block |
+| `monitoring.enabled` | `true` | Enable Prometheus metrics and pod scrape annotations |
+| `monitoring.prometheus.enabled` | `true` | Inject `prometheus.xml` into ClickHouse config |
 | `monitoring.prometheus.port` | `9363` | Metrics scrape port |
 | `monitoring.serviceMonitor` | `false` | Create a `ServiceMonitor` for the Prometheus Operator |
+
+Deploy Prometheus and Grafana alongside the chart:
+```bash
+# Prometheus (into the same namespace as ClickHouse)
+PROMETHEUS_NAMESPACE=clickstack NO_WAIT=1 bash deploy/prometheus/create-prometheus.sh
+
+# Grafana via Helm (Prometheus pre-wired as default datasource)
+helm repo add grafana https://grafana.github.io/helm-charts && helm repo update
+helm install grafana grafana/grafana -n clickstack \
+  --set "datasources.datasources\\.yaml.apiVersion=1" \
+  --set "datasources.datasources\\.yaml.datasources[0].name=Prometheus" \
+  --set "datasources.datasources\\.yaml.datasources[0].type=prometheus" \
+  --set "datasources.datasources\\.yaml.datasources[0].url=http://prometheus:9090" \
+  --set "datasources.datasources\\.yaml.datasources[0].isDefault=true"
+
+# Access Grafana (login: admin / <your-clickhouse-admin-password>)
+kubectl port-forward -n clickstack svc/grafana 3000:80
+```
 
 ---
 
@@ -196,31 +214,35 @@ Enables a Prometheus-compatible metrics endpoint in ClickHouse.
 
 Deploys [clickhouse-backup](https://github.com/Altinity/clickhouse-backup) as a sidecar alongside each ClickHouse pod. Exposes a REST API on port 7171 for triggering and managing backups. Uses the `admin` user credentials automatically.
 
+When `garage.enabled=true`, the backup sidecar reads S3 credentials directly from the `garage-backup` secret and the S3 endpoint is set automatically to `http://<release>-garage:3900` — no manual credential configuration is needed. A Kubernetes CronJob (`<release>-backup`) runs backups on the configured schedule.
+
 | Value | Default | Description |
 |---|---|---|
-| `backup.enabled` | `false` | Enable the backup sidecar |
+| `backup.enabled` | `true` | Enable the backup sidecar and CronJob |
 | `backup.image.repository` | `altinity/clickhouse-backup` | Backup image |
-| `backup.image.tag` | `"2"` | Image tag |
+| `backup.image.tag` | `"2.7.2"` | Image tag |
 | `backup.image.pullPolicy` | `IfNotPresent` | Pull policy |
-| `backup.s3.bucket` | `""` | S3 bucket name |
-| `backup.s3.path` | `"clickhouse/"` | Path prefix within the bucket |
-| `backup.s3.endpoint` | `""` | S3 endpoint URL. Leave empty for AWS S3. For bundled Garage: `http://<release>-garage:3900` |
-| `backup.s3.region` | `"us-east-1"` | S3 region |
-| `backup.s3.accessKey` | `""` | S3 access key (stored in a Kubernetes Secret) |
-| `backup.s3.secretKey` | `""` | S3 secret key (stored in a Kubernetes Secret) |
+| `backup.s3.bucket` | `"clickhouse"` | S3 bucket name |
+| `backup.s3.path` | `"clickhouse-backup/"` | Path prefix within the bucket |
+| `backup.s3.endpoint` | `""` | S3 endpoint URL. Auto-set to Garage when `garage.enabled=true`. Leave empty for AWS S3. |
+| `backup.s3.region` | `"garage"` | S3 region |
+| `backup.s3.accessKey` | `""` | S3 access key. Ignored when `garage.enabled=true`. |
+| `backup.s3.secretKey` | `""` | S3 secret key. Ignored when `garage.enabled=true`. |
 | `backup.s3.forcePathStyle` | `true` | Required for non-AWS S3 (Garage, MinIO, etc.) |
 | `backup.keepRemote` | `7` | Number of remote backups to retain |
-| `backup.resources` | `{}` | CPU/memory limits and requests for the backup sidecar |
+| `backup.schedule` | `"0 2 * * *"` | CronJob schedule (daily at 2am UTC) |
+| `backup.resources.limits.cpu` | `500m` | CPU limit for backup sidecar |
+| `backup.resources.limits.memory` | `512Mi` | Memory limit for backup sidecar |
 
 **Common backup commands:**
 ```bash
-# Create and upload a backup
+# Trigger a backup manually
 kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
 
 # List remote backups
 kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup list remote
 
-# Restore a backup
+# Restore a specific backup
 kubectl exec -n <namespace> <pod> -c clickhouse-backup -- clickhouse-backup restore <backup-name>
 ```
 
@@ -244,15 +266,7 @@ Deploys [Garage](https://garagehq.deuxfleurs.fr/) as an S3-compatible object sto
 
 The Garage S3 API is reachable in-cluster at `http://<release>-garage:3900`. A post-install hook configures the cluster layout, creates the bucket, generates an access key (Garage requires its own `GK<24-hex>` ID format, so the key is not user-specified), and writes credentials to a Secret named `garage-backup` in the release namespace. The chart's default `podTemplate.extraEnv` injects those credentials into the ClickHouse container as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`; the storage_config.xml references them via `from_env`.
 
-To use Garage as the backup target, set:
-```yaml
-backup:
-  s3:
-    endpoint: "http://<release>-garage:3900"
-    bucket: "clickhouse"
-    region: "garage"
-    forcePathStyle: true
-```
+When `backup.enabled=true` and `garage.enabled=true`, the backup sidecar automatically uses Garage as the S3 backend — no additional configuration required.
 
 ---
 
@@ -347,18 +361,14 @@ backup:
 ```
 
 ### With Garage for object storage and backup
+Both are enabled by default. Credentials and endpoint are wired automatically — no extra config needed:
 ```yaml
 garage:
-  enabled: true
-  bucket: clickhouse-data
+  enabled: true   # default
 
 backup:
-  enabled: true
-  s3:
-    bucket: clickhouse-data
-    endpoint: "http://<release>-garage:3900"
-    region: "garage"
-    forcePathStyle: true
+  enabled: true   # default — S3 endpoint and credentials auto-read from garage-backup secret
+  keepRemote: 14  # override retention if desired
 ```
 
 ---

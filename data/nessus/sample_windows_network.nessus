@@ -1,0 +1,900 @@
+<?xml version="1.0" ?>
+<NessusClientData_v2>
+  <Report name="Windows Network Scan">
+    <ReportHost name="windc01">
+      <HostProperties>
+        <tag name="host-ip">10.10.0.10</tag>
+        <tag name="operating-system">Microsoft Windows Server 2019 Standard</tag>
+      </HostProperties>
+      <ReportItem port="445" svc_name="microsoft-ds" protocol="tcp" severity="4" pluginID="97737" pluginName="MS17-010: EternalBlue SMB RCE (WannaCry)" pluginFamily="Windows">
+        <synopsis>The remote Windows host is affected by a critical remote code execution vulnerability.</synopsis>
+        <description>The remote Windows host is missing a security update and is affected by the EternalBlue SMB vulnerability used by WannaCry and NotPetya ransomware.</description>
+        <solution>Apply Microsoft Security Bulletin MS17-010.</solution>
+        <risk_factor>Critical</risk_factor>
+        <plugin_output>Missing patch: KB4012212
+SMB dialect: SMBv1 enabled</plugin_output>
+        <cvss_base_score>9.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:C/A:C</cvss_vector>
+        <cve>CVE-2017-0143</cve>
+        <cve>CVE-2017-0144</cve>
+        <cve>CVE-2017-0145</cve>
+        <plugin_publication_date>2017/03/14</plugin_publication_date>
+        <plugin_modification_date>2022/06/09</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="445" svc_name="microsoft-ds" protocol="tcp" severity="3" pluginID="90510" pluginName="MS16-047: SAM/LSAD Downgrade Vulnerability (Badlock)" pluginFamily="Windows">
+        <synopsis>The remote host is affected by a man-in-the-middle vulnerability.</synopsis>
+        <description>The remote Windows host is missing a security update and is therefore affected by a man-in-the-middle (MitM) vulnerability, known as 'Badlock', in the SAM and LSAD protocols.</description>
+        <solution>Apply Microsoft Security Bulletin MS16-047.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>Missing patch: KB3148538</plugin_output>
+        <cvss_base_score>6.8</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+        <cve>CVE-2016-0128</cve>
+        <plugin_publication_date>2016/04/12</plugin_publication_date>
+        <plugin_modification_date>2019/11/25</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="139" svc_name="netbios-ssn" protocol="tcp" severity="3" pluginID="90510" pluginName="MS16-047: SAM/LSAD Downgrade Vulnerability (Badlock)" pluginFamily="Windows">
+        <synopsis>The remote host is affected by a man-in-the-middle vulnerability.</synopsis>
+        <description>The remote Windows host is missing a security update and is therefore affected by a man-in-the-middle (MitM) vulnerability, known as 'Badlock', in the SAM and LSAD protocols.</description>
+        <solution>Apply Microsoft Security Bulletin MS16-047.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>Missing patch: KB3148538</plugin_output>
+        <cvss_base_score>6.8</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+        <cve>CVE-2016-0128</cve>
+        <plugin_publication_date>2016/04/12</plugin_publication_date>
+        <plugin_modification_date>2019/11/25</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="2" pluginID="10881" pluginName="SSH Protocol Version 1 Enabled" pluginFamily="Misc.">
+        <synopsis>The remote host supports SSH protocol version 1.</synopsis>
+        <description>The remote SSH daemon supports SSH protocol version 1, which is not recommended. SSH protocol version 1 has cryptographic weaknesses.</description>
+        <solution>Disable SSH v1 in sshd_config and restart the SSH service.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>The remote SSH server supports SSHv1.
+SSHv1 session key: diffie-hellman-group1-sha1</plugin_output>
+        <cvss_base_score>5.0</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:N/A:N</cvss_vector>
+        <plugin_publication_date>2002/03/06</plugin_publication_date>
+        <plugin_modification_date>2019/10/04</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="35291" pluginName="SSL Certificate Expiry" pluginFamily="General">
+        <synopsis>The remote server's SSL certificate has already expired.</synopsis>
+        <description>This plugin checks the expiry of SSL certificates on the remote host. An expired certificate may indicate a misconfiguration or an abandoned service.</description>
+        <solution>Renew the SSL certificate.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The SSL certificate has already expired:
+  Not After : Jan 01 00:00:00 2023 GMT</plugin_output>
+        <plugin_publication_date>2009/01/06</plugin_publication_date>
+        <plugin_modification_date>2021/09/23</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="windc02">
+      <HostProperties>
+        <tag name="host-ip">10.10.0.11</tag>
+        <tag name="operating-system">Microsoft Windows Server 2016 Standard</tag>
+      </HostProperties>
+      <ReportItem port="445" svc_name="microsoft-ds" protocol="tcp" severity="3" pluginID="90510" pluginName="MS16-047: SAM/LSAD Downgrade Vulnerability (Badlock)" pluginFamily="Windows">
+        <synopsis>The remote host is affected by a man-in-the-middle vulnerability.</synopsis>
+        <description>The remote Windows host is missing a security update and is therefore affected by a man-in-the-middle (MitM) vulnerability, known as 'Badlock', in the SAM and LSAD protocols.</description>
+        <solution>Apply Microsoft Security Bulletin MS16-047.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>Missing patch: KB3148538</plugin_output>
+        <cvss_base_score>6.8</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+        <cve>CVE-2016-0128</cve>
+        <plugin_publication_date>2016/04/12</plugin_publication_date>
+        <plugin_modification_date>2019/11/25</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="139" svc_name="netbios-ssn" protocol="tcp" severity="3" pluginID="90510" pluginName="MS16-047: SAM/LSAD Downgrade Vulnerability (Badlock)" pluginFamily="Windows">
+        <synopsis>The remote host is affected by a man-in-the-middle vulnerability.</synopsis>
+        <description>The remote Windows host is missing a security update and is therefore affected by a man-in-the-middle (MitM) vulnerability, known as 'Badlock', in the SAM and LSAD protocols.</description>
+        <solution>Apply Microsoft Security Bulletin MS16-047.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>Missing patch: KB3148538</plugin_output>
+        <cvss_base_score>6.8</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:P/A:P</cvss_vector>
+        <cve>CVE-2016-0128</cve>
+        <plugin_publication_date>2016/04/12</plugin_publication_date>
+        <plugin_modification_date>2019/11/25</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="winapp01">
+      <HostProperties>
+        <tag name="host-ip">10.10.1.10</tag>
+        <tag name="operating-system">Microsoft Windows Server 2019 Standard</tag>
+      </HostProperties>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="4" pluginID="70658" pluginName="MS14-066: RCE in SChannel (POODLE/SSL)" pluginFamily="Windows">
+        <synopsis>The remote Windows host is affected by a critical vulnerability in Microsoft SChannel.</synopsis>
+        <description>A remote code execution vulnerability exists in the Microsoft Secure Channel (Schannel) security package due to improper processing of specially crafted packets.</description>
+        <solution>Microsoft has released a set of patches for Windows 2008, 2012 R2.</solution>
+        <risk_factor>Critical</risk_factor>
+        <plugin_output>Vulnerable SChannel version detected.
+OS: Windows Server 2008 R2</plugin_output>
+        <cvss_base_score>10.0</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:C/I:C/A:C</cvss_vector>
+        <cve>CVE-2014-6321</cve>
+        <plugin_publication_date>2014/11/11</plugin_publication_date>
+        <plugin_modification_date>2019/08/13</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="57582" pluginName="SSL Self-Signed Certificate" pluginFamily="General">
+        <synopsis>The SSL certificate chain for this service ends in an unrecognized self-signed certificate.</synopsis>
+        <description>The X.509 certificate chain for this service is not signed by a recognized certificate authority.</description>
+        <solution>Replace the SSL certificate with one signed by a recognized CA.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>Certificate details:
+  Subject: CN=web01.internal
+  Issuer: CN=web01.internal
+  Expiry: 2024-01-01</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2012/01/17</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="65821" pluginName="SSL RC4 Cipher Suites Supported (Bar Mitzvah)" pluginFamily="General">
+        <synopsis>The remote service supports the use of the RC4 cipher.</synopsis>
+        <description>The remote host supports the use of RC4 in one or more cipher suites. The RC4 cipher is flawed in its generation of a pseudo-random stream of bytes so that a wide variety of small biases are introduced.</description>
+        <solution>Reconfigure the affected application to avoid use of RC4 ciphers.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>RC4 cipher suites supported:
+  TLS_RSA_WITH_RC4_128_MD5
+  TLS_RSA_WITH_RC4_128_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2013-2566</cve>
+        <cve>CVE-2015-2808</cve>
+        <plugin_publication_date>2013/04/05</plugin_publication_date>
+        <plugin_modification_date>2021/01/19</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <synopsis>A web server is running on the remote host.</synopsis>
+        <description>This plugin attempts to determine the type and the version of the remote web server.</description>
+        <solution>n/a</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>The remote web server type is :
+  Apache/2.4.41 (Ubuntu)</plugin_output>
+        <plugin_publication_date>2007/01/30</plugin_publication_date>
+        <plugin_modification_date>2020/01/20</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8080" svc_name="http-proxy" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <synopsis>A web server is running on the remote host.</synopsis>
+        <description>This plugin attempts to determine the type and the version of the remote web server.</description>
+        <solution>n/a</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>The remote web server type is :
+  Apache/2.4.41 (Ubuntu)</plugin_output>
+        <plugin_publication_date>2007/01/30</plugin_publication_date>
+        <plugin_modification_date>2020/01/20</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="winapp02">
+      <HostProperties>
+        <tag name="host-ip">10.10.1.11</tag>
+        <tag name="operating-system">Microsoft Windows Server 2019 Standard</tag>
+      </HostProperties>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="4" pluginID="70658" pluginName="MS14-066: RCE in SChannel (POODLE/SSL)" pluginFamily="Windows">
+        <synopsis>The remote Windows host is affected by a critical vulnerability in Microsoft SChannel.</synopsis>
+        <description>A remote code execution vulnerability exists in the Microsoft Secure Channel (Schannel) security package due to improper processing of specially crafted packets.</description>
+        <solution>Microsoft has released a set of patches for Windows 2008, 2012 R2.</solution>
+        <risk_factor>Critical</risk_factor>
+        <plugin_output>Vulnerable SChannel version detected.
+OS: Windows Server 2008 R2</plugin_output>
+        <cvss_base_score>10.0</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:C/I:C/A:C</cvss_vector>
+        <cve>CVE-2014-6321</cve>
+        <plugin_publication_date>2014/11/11</plugin_publication_date>
+        <plugin_modification_date>2019/08/13</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="57582" pluginName="SSL Self-Signed Certificate" pluginFamily="General">
+        <synopsis>The SSL certificate chain for this service ends in an unrecognized self-signed certificate.</synopsis>
+        <description>The X.509 certificate chain for this service is not signed by a recognized certificate authority.</description>
+        <solution>Replace the SSL certificate with one signed by a recognized CA.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>Certificate details:
+  Subject: CN=web01.internal
+  Issuer: CN=web01.internal
+  Expiry: 2024-01-01</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2012/01/17</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <synopsis>A web server is running on the remote host.</synopsis>
+        <description>This plugin attempts to determine the type and the version of the remote web server.</description>
+        <solution>n/a</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>The remote web server type is :
+  Apache/2.4.41 (Ubuntu)</plugin_output>
+        <plugin_publication_date>2007/01/30</plugin_publication_date>
+        <plugin_modification_date>2020/01/20</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8080" svc_name="http-proxy" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <synopsis>A web server is running on the remote host.</synopsis>
+        <description>This plugin attempts to determine the type and the version of the remote web server.</description>
+        <solution>n/a</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>The remote web server type is :
+  Apache/2.4.41 (Ubuntu)</plugin_output>
+        <plugin_publication_date>2007/01/30</plugin_publication_date>
+        <plugin_modification_date>2020/01/20</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="winapp03">
+      <HostProperties>
+        <tag name="host-ip">10.10.1.12</tag>
+        <tag name="operating-system">Microsoft Windows Server 2016 Standard</tag>
+      </HostProperties>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8443" svc_name="https" protocol="tcp" severity="3" pluginID="51192" pluginName="SSL Certificate Cannot Be Trusted" pluginFamily="General">
+        <synopsis>The SSL certificate for this service cannot be trusted.</synopsis>
+        <description>The server's X.509 certificate does not have a signature from a known public certificate authority. This situation can occur in three different ways: the certificate is self-signed, signed by an unknown CA, or signed by an untrusted CA.</description>
+        <solution>Purchase or generate a proper SSL certificate for the service.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>The certificate is self-signed.
+Subject: CN=localhost</plugin_output>
+        <cvss_base_score>6.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:L/Au:N/C:P/I:P/A:N</cvss_vector>
+        <plugin_publication_date>2010/12/15</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <synopsis>A web server is running on the remote host.</synopsis>
+        <description>This plugin attempts to determine the type and the version of the remote web server.</description>
+        <solution>n/a</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>The remote web server type is :
+  Apache/2.4.41 (Ubuntu)</plugin_output>
+        <plugin_publication_date>2007/01/30</plugin_publication_date>
+        <plugin_modification_date>2020/01/20</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="8080" svc_name="http-proxy" protocol="tcp" severity="0" pluginID="10107" pluginName="HTTP Server Type and Version" pluginFamily="Web Servers">
+        <synopsis>A web server is running on the remote host.</synopsis>
+        <description>This plugin attempts to determine the type and the version of the remote web server.</description>
+        <solution>n/a</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>The remote web server type is :
+  Apache/2.4.41 (Ubuntu)</plugin_output>
+        <plugin_publication_date>2007/01/30</plugin_publication_date>
+        <plugin_modification_date>2020/01/20</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+    </ReportHost>
+    <ReportHost name="winfile01">
+      <HostProperties>
+        <tag name="host-ip">10.10.2.10</tag>
+        <tag name="operating-system">Microsoft Windows Server 2019 Standard</tag>
+      </HostProperties>
+      <ReportItem port="445" svc_name="microsoft-ds" protocol="tcp" severity="4" pluginID="97737" pluginName="MS17-010: EternalBlue SMB RCE (WannaCry)" pluginFamily="Windows">
+        <synopsis>The remote Windows host is affected by a critical remote code execution vulnerability.</synopsis>
+        <description>The remote Windows host is missing a security update and is affected by the EternalBlue SMB vulnerability used by WannaCry and NotPetya ransomware.</description>
+        <solution>Apply Microsoft Security Bulletin MS17-010.</solution>
+        <risk_factor>Critical</risk_factor>
+        <plugin_output>Missing patch: KB4012212
+SMB dialect: SMBv1 enabled</plugin_output>
+        <cvss_base_score>9.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:C/A:C</cvss_vector>
+        <cve>CVE-2017-0143</cve>
+        <cve>CVE-2017-0144</cve>
+        <cve>CVE-2017-0145</cve>
+        <plugin_publication_date>2017/03/14</plugin_publication_date>
+        <plugin_modification_date>2022/06/09</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="2" pluginID="42873" pluginName="SSL Medium Strength Cipher Suites Supported (SWEET32)" pluginFamily="General">
+        <synopsis>The remote service supports the use of medium strength SSL cipher suites.</synopsis>
+        <description>The remote host supports the use of SSL cipher suites that offer medium strength encryption. SWEET32 exploits the birthday attack on 64-bit block ciphers (3DES, Blowfish).</description>
+        <solution>Reconfigure the affected application to avoid use of medium strength cipher suites.</solution>
+        <risk_factor>Medium</risk_factor>
+        <plugin_output>Medium strength cipher suites supported:
+  TLS_RSA_WITH_3DES_EDE_CBC_SHA</plugin_output>
+        <cvss_base_score>4.3</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:P/I:N/A:N</cvss_vector>
+        <cve>CVE-2016-2183</cve>
+        <plugin_publication_date>2009/11/23</plugin_publication_date>
+        <plugin_modification_date>2021/02/03</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="3389" svc_name="msrdp" protocol="tcp" severity="3" pluginID="104743" pluginName="TLS Version 1.0 Deprecated" pluginFamily="General">
+        <synopsis>The remote service encrypts traffic using an older version of TLS.</synopsis>
+        <description>The remote service accepts connections encrypted using TLS 1.0. TLS 1.0 has a number of cryptographic design flaws and has been deprecated by RFC 8996.</description>
+        <solution>Enable support for TLS 1.2 and 1.3, and disable TLS 1.0.</solution>
+        <risk_factor>High</risk_factor>
+        <plugin_output>TLS 1.0 is enabled on port 443.
+TLS 1.0 is enabled on port 3389.</plugin_output>
+        <cvss_base_score>7.4</cvss_base_score>
+        <cvss_vector>CVSS2#AV:N/AC:M/Au:N/C:C/I:N/A:N</cvss_vector>
+        <cve>CVE-2011-3389</cve>
+        <plugin_publication_date>2017/11/22</plugin_publication_date>
+        <plugin_modification_date>2023/04/11</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="22" svc_name="ssh" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="80" svc_name="www" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+      <ReportItem port="443" svc_name="https" protocol="tcp" severity="0" pluginID="11219" pluginName="Nessus SYN scanner" pluginFamily="Port scanners">
+        <synopsis>It is possible to determine which TCP ports are open.</synopsis>
+        <description>This plugin is a SYN 'half-open' port scanner. It shall be reasonably quick even against a firewalled target.</description>
+        <solution>Protect your target with an IP filter.</solution>
+        <risk_factor>None</risk_factor>
+        <plugin_output>Port 22/tcp was found to be open
+Port 80/tcp was found to be open
+Port 443/tcp was found to be open</plugin_output>
+        <plugin_publication_date>2009/02/04</plugin_publication_date>
+        <plugin_modification_date>2023/02/17</plugin_modification_date>
+      </ReportItem>
+    </ReportHost>
+  </Report>
+</NessusClientData_v2>

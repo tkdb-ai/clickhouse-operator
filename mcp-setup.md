@@ -22,8 +22,10 @@ without clobbering other servers:
 ./setup-mcp.sh
 ```
 
-If you're running ClickHouse via the Helm chart in minikube, the script will
-auto-suggest the minikube IP and NodePort. For non-interactive use:
+If you're running ClickHouse via the Helm chart, the script auto-detects the admin
+password from the `ch1-clickhouse-installation-admin` Kubernetes secret (any cluster
+where `kubectl` is configured). When running on minikube it also auto-suggests the
+host IP and NodePort. For non-interactive use:
 
 ```bash
 CH_HOST=192.168.49.2 CH_PORT=30941 CH_USER=admin CH_PASSWORD=... \

@@ -32,10 +32,12 @@
 {{- end }}
 {{- if .Values.backup.enabled }}
 
-{{ if .Values.garage.enabled -}}
-TIP: Garage is enabled — set backup.s3.endpoint=http://{{ .Release.Name }}-garage:3900 and backup.s3.bucket to use it as your backup target.
-{{ end -}}
 Backup REST API (port 7171) is available on each ClickHouse pod.
+{{- if .Values.garage.enabled }}
+   S3 backend: Garage (http://{{ .Release.Name }}-garage:3900, bucket: {{ .Values.backup.s3.bucket }})
+   Credentials: auto-read from the garage-backup secret.
+{{- end }}
+   Scheduled: {{ .Values.backup.schedule | default "0 2 * * *" }} (CronJob: {{ include "clickhouse.fullname" . }}-backup)
 
    Create and upload a backup:
    kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload

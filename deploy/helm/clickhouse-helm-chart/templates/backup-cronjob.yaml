@@ -1,0 +1,86 @@
+{{- if .Values.backup.enabled }}
+---
+# ServiceAccount + RBAC so the CronJob can exec into ClickHouse pods
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-backup-job
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-backup-job
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["list", "get"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-backup-job
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "clickhouse.fullname" . }}-backup-job
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "clickhouse.fullname" . }}-backup-job
+    namespace: {{ .Release.Namespace }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "clickhouse.fullname" . }}-backup
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | default "0 2 * * *" | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ include "clickhouse.fullname" . }}-backup-job
+          restartPolicy: OnFailure
+          containers:
+            - name: backup-trigger
+              image: bitnami/kubectl:latest
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  NAMESPACE="{{ .Release.Namespace }}"
+                  LABEL="clickhouse.altinity.com/chi={{ include "clickhouse.fullname" . }}"
+
+                  PODS=$(kubectl get pods -n "$NAMESPACE" -l "$LABEL" \
+                    --field-selector=status.phase=Running \
+                    -o jsonpath='{.items[*].metadata.name}')
+
+                  if [ -z "$PODS" ]; then
+                    echo "No running ClickHouse pods found" >&2
+                    exit 1
+                  fi
+
+                  ERRORS=0
+                  for POD in $PODS; do
+                    echo "==> Triggering backup on $POD"
+                    kubectl exec -n "$NAMESPACE" "$POD" -c clickhouse-backup \
+                      -- clickhouse-backup create-and-upload \
+                      || { echo "Backup failed on $POD" >&2; ERRORS=$((ERRORS+1)); }
+                  done
+
+                  exit $ERRORS
+{{- end }}
