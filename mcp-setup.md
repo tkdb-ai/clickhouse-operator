@@ -5,8 +5,12 @@ Enables Claude Code to query ClickHouse directly via natural language during a s
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) installed
-- Node.js / npx available
 - A running ClickHouse instance
+- A way to launch the `mcp-clickhouse` Python package — one of:
+  - `mcp-clickhouse` on PATH (`pip install mcp-clickhouse` or `brew install mcp-clickhouse`)
+  - [`uv`](https://docs.astral.sh/uv/) (recommended) → setup uses `uvx mcp-clickhouse`
+  - [`pipx`](https://pipx.pypa.io/) → setup uses `pipx run mcp-clickhouse`
+- `jq` and `curl` (for the setup script)
 
 ## Quick start
 
@@ -28,26 +32,28 @@ CH_HOST=192.168.49.2 CH_PORT=30941 CH_USER=admin CH_PASSWORD=... \
 
 ## Manual configuration
 
-Alternatively, add the following to `~/.claude/settings.json` under `mcpServers`:
+Alternatively, add the following to `~/.claude/settings.json` under `mcpServers`
+(adjust `command`/`args` to match how you launch `mcp-clickhouse`):
 
 ```json
 {
   "mcpServers": {
     "clickhouse": {
-      "command": "npx",
-      "args": ["-y", "@clickhouse/mcp-server"],
+      "command": "uvx",
+      "args": ["mcp-clickhouse"],
       "env": {
         "CLICKHOUSE_HOST": "localhost",
         "CLICKHOUSE_PORT": "8123",
-        "CLICKHOUSE_USERNAME": "admin",
-        "CLICKHOUSE_PASSWORD": "your-password-here"
+        "CLICKHOUSE_USER": "admin",
+        "CLICKHOUSE_PASSWORD": "your-password-here",
+        "CLICKHOUSE_SECURE": "false"
       }
     }
   }
 }
 ```
 
-The `npx -y` flag downloads and runs `@clickhouse/mcp-server` automatically — no separate install step needed.
+If `mcp-clickhouse` is already on PATH, you can drop `args` and set `"command": "mcp-clickhouse"`.
 
 ## Environment Variables
 
@@ -55,8 +61,9 @@ The `npx -y` flag downloads and runs `@clickhouse/mcp-server` automatically — 
 |---|---|---|
 | `CLICKHOUSE_HOST` | `localhost` | ClickHouse host |
 | `CLICKHOUSE_PORT` | `8123` | HTTP interface port (not native TCP 9000) |
-| `CLICKHOUSE_USERNAME` | — | ClickHouse user |
+| `CLICKHOUSE_USER` | — | ClickHouse user |
 | `CLICKHOUSE_PASSWORD` | — | ClickHouse password |
+| `CLICKHOUSE_SECURE` | `false` | Use HTTPS (set `true` for TLS-enabled endpoints) |
 
 ## Tools Exposed
 
