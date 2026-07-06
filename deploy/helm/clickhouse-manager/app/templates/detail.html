@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h3 class="mb-0">{{ inst.release }} <small class="text-muted">/ {{ inst.namespace }}</small></h3>
+  <div>
+    <a class="btn btn-outline-primary" href="{{ url_for('edit', namespace=inst.namespace, release=inst.release) }}">Edit</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Back</a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header">Status</div>
+      <ul class="list-group list-group-flush">
+        <li class="list-group-item d-flex justify-content-between">Phase <span class="badge bg-secondary">{{ inst.status.phase }}</span></li>
+        <li class="list-group-item d-flex justify-content-between">Hosts <span>{{ inst.status.hostsCompleted }}/{{ inst.status.hosts }}</span></li>
+        <li class="list-group-item d-flex justify-content-between">Shards × Replicas <span>{{ inst.values.get('layout', {}).get('shardsCount', '?') }} × {{ inst.values.get('layout', {}).get('replicasCount', '?') }}</span></li>
+        <li class="list-group-item d-flex justify-content-between">Image <span>{{ inst.values.get('image', {}).get('tag', '?') }}</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="col-md-8">
+    <div class="card shadow-sm">
+      <div class="card-header">Rendered manifests</div>
+      <div class="card-body p-0">
+        <pre class="m-0 p-3" style="max-height:600px;overflow:auto;font-size:.8rem;">{{ rendered }}</pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

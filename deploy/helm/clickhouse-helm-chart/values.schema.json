@@ -1,0 +1,266 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "clickhouse-installation values",
+    "description": "Validates values.yaml for the clickhouse-installation chart. The optional `x-form` keyword (ignored by Helm) tells the clickhouse-manager GUI which values to surface as friendly form fields.",
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+        "global": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "security": {
+                    "type": "object",
+                    "properties": {
+                        "allowInsecureImages": { "type": "boolean" }
+                    }
+                }
+            }
+        },
+        "nameOverride": { "type": "string" },
+        "fullnameOverride": { "type": "string" },
+
+        "layout": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "shardsCount": {
+                    "type": "integer", "minimum": 1, "default": 1,
+                    "title": "Shards",
+                    "x-form": { "group": "Topology", "order": 1 }
+                },
+                "replicasCount": {
+                    "type": "integer", "minimum": 1, "default": 2,
+                    "title": "Replicas",
+                    "x-form": { "group": "Topology", "order": 2 }
+                }
+            }
+        },
+
+        "image": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "repository": { "type": "string" },
+                "tag": {
+                    "type": "string", "default": "24.8",
+                    "title": "Image tag",
+                    "x-form": { "group": "Topology", "order": 3 }
+                },
+                "pullPolicy": { "type": "string", "enum": ["IfNotPresent", "Always", "Never"] }
+            }
+        },
+
+        "storage": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "size": {
+                            "type": "string", "default": "10Gi",
+                            "title": "Data size",
+                            "x-form": { "group": "Storage & Resources", "order": 1 }
+                        },
+                        "storageClassName": {
+                            "type": "string", "default": "",
+                            "title": "Storage class",
+                            "description": "Leave blank to use the cluster default StorageClass.",
+                            "x-form": { "group": "Storage & Resources", "order": 2, "allowEmpty": true }
+                        },
+                        "accessModes": { "type": "array", "items": { "type": "string" } }
+                    }
+                },
+                "log": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "enabled": { "type": "boolean" },
+                        "size": { "type": "string" },
+                        "storageClassName": { "type": "string" },
+                        "accessModes": { "type": "array", "items": { "type": "string" } }
+                    }
+                }
+            }
+        },
+
+        "coordination": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "mode": {
+                    "type": "string", "enum": ["keeper", "zookeeper", "none"], "default": "keeper",
+                    "title": "Coordination",
+                    "x-form": { "group": "Topology", "order": 4 }
+                },
+                "keeper": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "replicasCount": {
+                            "type": "integer", "minimum": 1, "default": 1,
+                            "title": "Keeper replicas",
+                            "description": "Use an odd number (3) for HA. Only used with keeper mode.",
+                            "x-form": { "group": "Topology", "order": 5 }
+                        }
+                    }
+                }
+            }
+        },
+
+        "settings": { "type": "object", "additionalProperties": true },
+        "profiles": { "type": "object", "additionalProperties": true },
+        "quotas": { "type": "object", "additionalProperties": true },
+        "files": { "type": "object", "additionalProperties": true },
+
+        "adminPassword": {
+            "type": "string", "default": "",
+            "title": "admin password",
+            "description": "Leave blank to auto-generate a random password.",
+            "x-form": { "group": "Users", "order": 2, "widget": "password", "allowEmpty": true }
+        },
+
+        "users": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "default": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "password": {
+                            "type": "string", "default": "",
+                            "title": "default user password",
+                            "x-form": { "group": "Users", "order": 1, "allowEmpty": true }
+                        },
+                        "networks/ip": {
+                            "type": "string", "default": "0.0.0.0/0",
+                            "x-form": { "constant": true }
+                        }
+                    }
+                }
+            }
+        },
+
+        "resources": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "limits": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "cpu": {
+                            "type": "string", "default": "1000m", "title": "CPU limit",
+                            "x-form": { "group": "Storage & Resources", "order": 3 }
+                        },
+                        "memory": {
+                            "type": "string", "default": "2Gi", "title": "Memory limit",
+                            "x-form": { "group": "Storage & Resources", "order": 4 }
+                        }
+                    }
+                },
+                "requests": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "cpu": {
+                            "type": "string", "default": "500m", "title": "CPU request",
+                            "x-form": { "group": "Storage & Resources", "order": 5 }
+                        },
+                        "memory": {
+                            "type": "string", "default": "1Gi", "title": "Memory request",
+                            "x-form": { "group": "Storage & Resources", "order": 6 }
+                        }
+                    }
+                }
+            }
+        },
+
+        "livenessProbe": { "type": "object", "additionalProperties": true },
+        "readinessProbe": { "type": "object", "additionalProperties": true },
+
+        "monitoring": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "enabled": {
+                    "type": "boolean", "default": true,
+                    "title": "Prometheus monitoring",
+                    "x-form": { "group": "Add-ons", "order": 1 }
+                },
+                "serviceMonitor": { "type": "boolean" },
+                "prometheus": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "enabled": { "type": "boolean" },
+                        "port": { "type": "integer" }
+                    }
+                }
+            }
+        },
+
+        "tabix-ui": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "enabled": {
+                    "type": "boolean", "default": true,
+                    "title": "Tabix UI",
+                    "x-form": { "group": "Add-ons", "order": 4 }
+                }
+            }
+        },
+
+        "backup": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "enabled": {
+                    "type": "boolean", "default": false,
+                    "title": "Backup sidecar",
+                    "x-form": { "group": "Add-ons", "order": 2 }
+                },
+                "keepRemote": { "type": "integer", "minimum": 0 },
+                "schedule": { "type": "string" },
+                "s3": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "properties": {
+                        "bucket": { "type": "string" },
+                        "path": { "type": "string" },
+                        "endpoint": { "type": "string" },
+                        "region": { "type": "string" },
+                        "accessKey": { "type": "string" },
+                        "secretKey": { "type": "string" },
+                        "forcePathStyle": { "type": "boolean" }
+                    }
+                }
+            }
+        },
+
+        "garage": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "enabled": {
+                    "type": "boolean", "default": false,
+                    "title": "Bundled Garage S3",
+                    "x-form": { "group": "Add-ons", "order": 3 }
+                },
+                "bucket": { "type": "string" },
+                "storagePolicy": { "type": "string" },
+                "replicationFactor": { "type": "integer", "minimum": 1 },
+                "rpcSecret": { "type": "string" },
+                "adminToken": { "type": "string" },
+                "metricsToken": { "type": "string" }
+            }
+        },
+
+        "podTemplate": { "type": "object", "additionalProperties": true },
+        "serviceTemplate": { "type": "object", "additionalProperties": true }
+    }
+}

@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clickhouse-manager
+  namespace: clickhouse-manager
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clickhouse-manager
+rules:
+  # ClickHouse operator custom resources
+  - apiGroups: ["clickhouse.altinity.com", "clickhouse-keeper.altinity.com"]
+    resources: ["clickhouseinstallations", "clickhousekeeperinstallations"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Everything the chart renders and the manager applies / inspects
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets", "services", "persistentvolumeclaims", "pods"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["monitoring.coreos.com"]
+    resources: ["servicemonitors"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: clickhouse-manager
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: clickhouse-manager
+subjects:
+  - kind: ServiceAccount
+    name: clickhouse-manager
+    namespace: clickhouse-manager

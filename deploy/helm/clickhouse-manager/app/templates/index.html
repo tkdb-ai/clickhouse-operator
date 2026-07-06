@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">ClickHouse Installations</h3>
+
+{% if error %}
+  <div class="alert alert-danger">Could not reach the cluster: {{ error }}</div>
+{% endif %}
+
+{% if issues %}
+  <div class="alert alert-warning">
+    <strong>Schema issues</strong> (from <code>values.schema.json</code>):
+    <ul class="mb-0">{% for i in issues %}<li>{{ i }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
+
+{% if not installs %}
+  <div class="text-center text-muted py-5">
+    <p>No managed installations yet.</p>
+    <a class="btn btn-primary" href="{{ url_for('new') }}">Create your first installation</a>
+  </div>
+{% else %}
+<table class="table table-hover bg-white shadow-sm rounded">
+  <thead class="table-light">
+    <tr>
+      <th>Name</th><th>Namespace</th><th>Shards × Replicas</th>
+      <th>Status</th><th class="text-end">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for i in installs %}
+    <tr>
+      <td><a href="{{ url_for('detail', namespace=i.namespace, release=i.release) }}">{{ i.release }}</a></td>
+      <td>{{ i.namespace }}</td>
+      <td>{{ i.values.get('layout', {}).get('shardsCount', '?') }} × {{ i.values.get('layout', {}).get('replicasCount', '?') }}</td>
+      <td>
+        {% set phase = i.status.phase %}
+        <span class="badge bg-{{ 'success' if phase == 'Completed' else 'secondary' }}">{{ phase }}</span>
+        {% if i.status.hostsCompleted is not none %}
+          <small class="text-muted">{{ i.status.hostsCompleted }}/{{ i.status.hosts }} hosts</small>
+        {% endif %}
+      </td>
+      <td class="text-end">
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', namespace=i.namespace, release=i.release) }}">Edit</a>
+        <form class="d-inline" method="post" action="{{ url_for('delete', namespace=i.namespace, release=i.release) }}"
+              onsubmit="return confirm('Delete {{ i.release }} and all its resources?');">
+          <button class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

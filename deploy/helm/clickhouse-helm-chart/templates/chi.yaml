@@ -102,7 +102,8 @@ spec:
             </policies>
           </storage_configuration>
         </clickhouse>
-      {{- else if not .Values.files }}
+      {{- end }}
+      {{- if and (not .Values.files) (not .Values.monitoring.enabled) (not .Values.garage.enabled) }}
       {}
       {{- end }}
 

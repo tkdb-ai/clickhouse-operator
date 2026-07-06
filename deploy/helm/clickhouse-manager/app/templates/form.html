@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-3">{{ 'Edit' if mode == 'edit' else 'New' }} ClickHouse Installation</h3>
+
+<form method="post" action="{{ url_for('apply') }}" class="bg-white p-4 rounded shadow-sm">
+  <input type="hidden" name="mode" value="{{ mode }}">
+
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <label class="form-label">Installation name</label>
+      <input class="form-control" name="release" value="{{ release }}"
+             {{ 'readonly' if mode == 'edit' else 'required' }}
+             pattern="[a-z0-9-]+" placeholder="analytics">
+      <div class="form-text">Lowercase letters, numbers, hyphens. Used as the release/CHI name.</div>
+    </div>
+    <div class="col-md-6">
+      <label class="form-label">Namespace</label>
+      <input class="form-control" name="namespace" value="{{ namespace }}"
+             {{ 'readonly' if mode == 'edit' else 'required' }}>
+    </div>
+  </div>
+
+  {# ---- schema-driven fields (see app/fields.yaml) ---- #}
+  {% for group in schema.groups %}
+  <h5 class="border-bottom pb-2">{{ group.title }}</h5>
+  <div class="row mb-4">
+    {% for field in group.fields %}
+    {% set val = values[field.path] %}
+    {% if field.type == 'bool' %}
+    <div class="col-md-3">
+      <div class="form-check form-switch mt-4">
+        <input class="form-check-input" type="checkbox" name="{{ field.path }}" id="{{ field.path }}" {{ 'checked' if val }}>
+        <label class="form-check-label" for="{{ field.path }}">{{ field.label }}</label>
+      </div>
+    </div>
+    {% else %}
+    <div class="col-md-3">
+      <label class="form-label" for="{{ field.path }}">{{ field.label }}</label>
+      {% if field.type == 'select' %}
+      <select class="form-select" name="{{ field.path }}" id="{{ field.path }}">
+        {% for opt in field.options %}
+        <option value="{{ opt }}" {{ 'selected' if val == opt }}>{{ opt }}</option>
+        {% endfor %}
+      </select>
+      {% else %}
+      <input class="form-control" id="{{ field.path }}" name="{{ field.path }}"
+             type="{{ 'number' if field.type == 'number' else ('password' if field.type == 'password' else 'text') }}"
+             value="{{ val if val is not none else '' }}"
+             {% if field.type == 'password' %}placeholder="(auto-generate)"{% endif %}>
+      {% endif %}
+      {% if field.help %}<div class="form-text">{{ field.help }}</div>{% endif %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  {# ---- catch-all: any value not covered by the schema ---- #}
+  <div class="accordion mb-4" id="advanced">
+    <div class="accordion-item">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#advBody">
+          Advanced values (YAML) — anything not shown above
+        </button>
+      </h2>
+      <div id="advBody" class="accordion-collapse collapse {{ 'show' if extra_yaml }}">
+        <div class="accordion-body">
+          <textarea class="form-control font-monospace" name="_raw_yaml" rows="8"
+                    placeholder="# e.g.&#10;settings:&#10;  max_concurrent_queries: 200">{{ extra_yaml }}</textarea>
+          <div class="form-text">
+            Deep-merged into the chart values. Structured fields above win on any overlapping path.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" type="submit">{{ 'Apply changes' if mode == 'edit' else 'Create installation' }}</button>
+  <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Cancel</a>
+</form>
+{% endblock %}

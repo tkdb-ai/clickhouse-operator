@@ -302,6 +302,38 @@ The default sidecar logs disk usage of `/var/lib/clickhouse` every 60 seconds. T
 
 ---
 
+## Validation (`values.schema.json`)
+
+This chart ships a `values.schema.json`. Helm validates `values.yaml` (and any
+`--set` / `-f` overrides) against it automatically on `install`, `upgrade`,
+`template`, and `lint`, so mistakes fail fast:
+
+```bash
+$ helm template my-ch . --set layout.shardsCount=notanumber
+Error: values don't meet the specifications of the schema(s) in the following chart(s):
+clickhouse-installation:
+- at '/layout/shardsCount': got string, want integer
+```
+
+Objects use `additionalProperties: true`, so custom keys (extra `users`,
+`settings`, `files`, `podTemplate` entries, …) are still allowed — the schema
+validates the *known* structure without blocking extensions.
+
+The schema also carries an optional `x-form` keyword on selected properties.
+Helm ignores it; it tells the [ClickHouse Manager GUI](../clickhouse-manager)
+which values to surface as form fields. Adding a validated property with an
+`x-form` hint makes it appear in the GUI automatically — see
+[clickhouse-manager/docs/SCHEMA.md](../clickhouse-manager/docs/SCHEMA.md).
+
+## Managing installations with a GUI
+
+[ClickHouse Manager](../clickhouse-manager) is an optional Flask + Bootstrap web
+UI to create, edit, and delete installations of this chart from a browser. It
+renders this chart with `helm template` and applies the result through the
+Kubernetes API. It is a separate app, not part of this chart.
+
+---
+
 ## Example Configurations
 
 ### Single-node development instance

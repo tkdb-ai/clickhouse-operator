@@ -1,0 +1,73 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: clickhouse-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse-manager
+  namespace: clickhouse-manager
+  labels:
+    app: clickhouse-manager
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse-manager
+  template:
+    metadata:
+      labels:
+        app: clickhouse-manager
+    spec:
+      serviceAccountName: clickhouse-manager
+      containers:
+        - name: web
+          image: clickhouse-manager:dev   # replace with your pushed image
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DEFAULT_NAMESPACE
+              value: default
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: clickhouse-manager
+                  key: secret-key
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: clickhouse-manager
+  namespace: clickhouse-manager
+type: Opaque
+stringData:
+  # Change this. Used to sign Flask sessions / flash messages.
+  secret-key: change-me-to-a-random-string
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-manager
+  namespace: clickhouse-manager
+spec:
+  selector:
+    app: clickhouse-manager
+  ports:
+    - port: 80
+      targetPort: 8080
+  type: ClusterIP
