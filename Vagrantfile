@@ -268,17 +268,6 @@ EOF
     bash -xe ./create-prometheus.sh
     cd /vagrant/
 
-    export MINIO_NAMESPACE=${MINIO_NAMESPACE:-minio}
-    cd /vagrant/deploy/minio/
-    kubectl delete ns ${MINIO_NAMESPACE} || true
-    bash -xe ./install-minio-operator.sh
-    bash -xe ./install-minio-tenant.sh
-    # kubectl create ns ${MINIO_NAMESPACE}
-    # kubectl minio init --namespace ${MINIO_NAMESPACE}
-    # kubectl minio tenant create --name minio --namespace ${MINIO_NAMESPACE} --servers 1 --volumes 4 --capacity 10Gi --storage-class standard
-
-    cd /vagrant/
-
     # install grafana-operator + grafana instance + GrafanaDashboard, GrafanaDatasource for clickhouse
     export GRAFANA_NAMESPACE=${GRAFANA_NAMESPACE:-grafana}
     cd /vagrant/deploy/grafana/grafana-with-grafana-operator/

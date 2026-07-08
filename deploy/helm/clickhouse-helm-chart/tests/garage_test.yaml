@@ -1,0 +1,233 @@
+suite: Garage
+templates:
+  - garage.yaml
+  - garage-setup-hook.yaml
+
+tests:
+  - it: renders nothing when garage is disabled
+    set:
+      garage.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders config, statefulset, and two services when enabled
+    templates:
+      - garage.yaml
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: ConfigMap
+        documentIndex: 0
+      - isKind:
+          of: StatefulSet
+        documentIndex: 1
+      - isKind:
+          of: Service
+        documentIndex: 2
+      - isKind:
+          of: Service
+        documentIndex: 3
+
+  - it: configmap embeds replication factor and rpc secret from values
+    templates:
+      - garage.yaml
+    set:
+      garage.replicationFactor: 3
+      garage.rpcSecret: "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+      garage.adminToken: "unit-test-admin-token"
+      garage.metricsToken: "unit-test-metrics-token"
+    documentIndex: 0
+    asserts:
+      - isKind:
+          of: ConfigMap
+      - matchRegex:
+          path: data["garage.toml"]
+          pattern: 'replication_factor = 3'
+      - matchRegex:
+          path: data["garage.toml"]
+          pattern: 'rpc_secret = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"'
+      - matchRegex:
+          path: data["garage.toml"]
+          pattern: 'admin_token = "unit-test-admin-token"'
+      - matchRegex:
+          path: data["garage.toml"]
+          pattern: 'metrics_token = "unit-test-metrics-token"'
+
+  - it: statefulset exposes s3, rpc, and admin ports
+    templates:
+      - garage.yaml
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: StatefulSet
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: s3
+            containerPort: 3900
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: rpc
+            containerPort: 3901
+      - contains:
+          path: spec.template.spec.containers[0].ports
+          content:
+            name: admin
+            containerPort: 3903
+
+  - it: statefulset uses persistence sizes from values
+    templates:
+      - garage.yaml
+    set:
+      garage.persistence.meta.size: 512Mi
+      garage.persistence.data.size: 40Gi
+    documentIndex: 1
+    asserts:
+      - equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 512Mi
+      - equal:
+          path: spec.volumeClaimTemplates[1].spec.resources.requests.storage
+          value: 40Gi
+
+  - it: s3 service exposes ports 3900 and 3903
+    templates:
+      - garage.yaml
+    documentIndex: 2
+    asserts:
+      - isKind:
+          of: Service
+      - contains:
+          path: spec.ports
+          content:
+            name: s3
+            port: 3900
+            targetPort: 3900
+      - contains:
+          path: spec.ports
+          content:
+            name: admin
+            port: 3903
+            targetPort: 3903
+
+  - it: headless service exposes rpc port only
+    templates:
+      - garage.yaml
+    documentIndex: 3
+    asserts:
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.clusterIP
+          value: None
+      - lengthEqual:
+          path: spec.ports
+          count: 1
+      - contains:
+          path: spec.ports
+          content:
+            name: rpc
+            port: 3901
+            targetPort: 3901
+
+  - it: s3 service name is release-scoped
+    templates:
+      - garage.yaml
+    release:
+      name: my-release
+    documentIndex: 2
+    asserts:
+      - equal:
+          path: metadata.name
+          value: my-release-garage
+
+  - it: setup hook renders sa, role, rolebinding, and job when enabled
+    templates:
+      - garage-setup-hook.yaml
+    asserts:
+      - hasDocuments:
+          count: 4
+      - isKind:
+          of: ServiceAccount
+        documentIndex: 0
+      - isKind:
+          of: Role
+        documentIndex: 1
+      - isKind:
+          of: RoleBinding
+        documentIndex: 2
+      - isKind:
+          of: Job
+        documentIndex: 3
+
+  - it: setup hook resources carry post-install and post-upgrade annotations
+    templates:
+      - garage-setup-hook.yaml
+    documentIndex: 3
+    asserts:
+      - equal:
+          path: metadata.annotations["helm.sh/hook"]
+          value: post-install,post-upgrade
+      - equal:
+          path: metadata.annotations["helm.sh/hook-delete-policy"]
+          value: before-hook-creation,hook-succeeded
+
+  - it: setup hook role only grants secret verbs
+    templates:
+      - garage-setup-hook.yaml
+    documentIndex: 1
+    asserts:
+      - isKind:
+          of: Role
+      - equal:
+          path: rules[0].apiGroups[0]
+          value: ""
+      - equal:
+          path: rules[0].resources[0]
+          value: secrets
+      - contains:
+          path: rules[0].verbs
+          content: get
+      - contains:
+          path: rules[0].verbs
+          content: create
+      - contains:
+          path: rules[0].verbs
+          content: patch
+      - contains:
+          path: rules[0].verbs
+          content: update
+
+  - it: setup job embeds bucket and admin token from values
+    templates:
+      - garage-setup-hook.yaml
+    set:
+      garage.bucket: my-custom-bucket
+      garage.adminToken: unit-test-admin-token
+    release:
+      name: my-release
+    documentIndex: 3
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: 'BUCKET="my-custom-bucket"'
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: 'TOKEN="unit-test-admin-token"'
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: 'ADMIN="http://my-release-garage:3903"'
+
+  - it: setup job wait-for-garage init container references the s3 service
+    templates:
+      - garage-setup-hook.yaml
+    release:
+      name: my-release
+    documentIndex: 3
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: 'nc -z my-release-garage 3903'
