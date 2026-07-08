@@ -33,7 +33,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.templates.podTemplates[0].spec.containers[0].image
-          pattern: "clickhouse/clickhouse-server:24.8"
+          pattern: "clickhouse/clickhouse-server:25.8"
 
   - it: uses custom image tag when set
     set:
@@ -100,10 +100,10 @@ tests:
       monitoring.enabled: true
     asserts:
       - isNotNull:
-          path: spec.monitoring
+          path: spec.configuration.files["prometheus.xml"]
       - equal:
-          path: spec.monitoring.prometheus.port
-          value: 9363
+          path: spec.templates.podTemplates[0].metadata.annotations["prometheus.io/port"]
+          value: "9363"
 
   - it: does not include log volume claim template by default
     asserts:

@@ -42,7 +42,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.templates.podTemplates[0].spec.containers[0].image
-          pattern: "clickhouse/clickhouse-keeper:25.1"
+          pattern: "clickhouse/clickhouse-keeper:25.8"
 
   - it: falls back to chart appVersion when keeper image tag is empty
     set:
@@ -51,7 +51,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.templates.podTemplates[0].spec.containers[0].image
-          pattern: "clickhouse/clickhouse-keeper:24.8"
+          pattern: "clickhouse/clickhouse-keeper:25.8"
 
   - it: uses custom keeper image tag when set
     set:
@@ -96,27 +96,27 @@ tests:
           path: metadata.name
           value: my-clickhouse-keeper
 
-  - it: liveness probe uses pgrep clickhouse-keeper
+  - it: liveness probe checks keeper client port
     set:
       coordination.mode: keeper
     asserts:
       - equal:
-          path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.exec.command
-          value: ["pgrep", "clickhouse-keeper"]
+          path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.tcpSocket.port
+          value: 2181
       - equal:
           path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.failureThreshold
-          value: 12
+          value: 6
       - equal:
           path: spec.templates.podTemplates[0].spec.containers[0].livenessProbe.initialDelaySeconds
-          value: 5
+          value: 30
 
-  - it: readiness probe uses pgrep clickhouse-keeper
+  - it: readiness probe checks keeper client port
     set:
       coordination.mode: keeper
     asserts:
       - equal:
-          path: spec.templates.podTemplates[0].spec.containers[0].readinessProbe.exec.command
-          value: ["pgrep", "clickhouse-keeper"]
+          path: spec.templates.podTemplates[0].spec.containers[0].readinessProbe.tcpSocket.port
+          value: 2181
       - equal:
           path: spec.templates.podTemplates[0].spec.containers[0].readinessProbe.failureThreshold
           value: 3

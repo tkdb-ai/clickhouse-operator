@@ -15,7 +15,7 @@ layout:
 # ClickHouse Image
 image:
   repository: clickhouse/clickhouse-server
-  tag: '24.8'
+  tag: '25.8'
   pullPolicy: IfNotPresent
 
 # Storage Configuration
@@ -43,7 +43,7 @@ coordination:
     replicasCount: 1  # Use 3 for production HA (must be odd for quorum)
     image:
       repository: clickhouse/clickhouse-keeper
-      tag: "25.1"
+      tag: "25.8"
       pullPolicy: IfNotPresent
     storage:
       size: 10Gi
