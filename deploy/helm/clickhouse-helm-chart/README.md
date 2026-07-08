@@ -20,6 +20,11 @@ kubectl get secret my-ch-clickhouse-installation-admin -n clickstack \
   -o jsonpath='{.data.admin}' | base64 --decode
 ```
 
+> **Looking for what the database can *do* and how to use each capability**
+> (connecting, sharding/replication, S3 tiered storage, backups, monitoring, …)?
+> See **[FEATURES.md](FEATURES.md)**. This README is the value-by-value
+> configuration reference.
+
 ---
 
 ## Configuration Reference
