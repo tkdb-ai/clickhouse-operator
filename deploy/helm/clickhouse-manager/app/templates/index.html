@@ -31,7 +31,7 @@
     <tr>
       <td><a href="{{ url_for('detail', namespace=i.namespace, release=i.release) }}">{{ i.release }}</a></td>
       <td>{{ i.namespace }}</td>
-      <td>{{ i.values.get('layout', {}).get('shardsCount', '?') }} × {{ i.values.get('layout', {}).get('replicasCount', '?') }}</td>
+      <td>{{ i['values'].get('layout', {}).get('shardsCount', '?') }} × {{ i['values'].get('layout', {}).get('replicasCount', '?') }}</td>
       <td>
         {% set phase = i.status.phase %}
         <span class="badge bg-{{ 'success' if phase == 'Completed' else 'secondary' }}">{{ phase }}</span>

@@ -15,12 +15,42 @@
       <ul class="list-group list-group-flush">
         <li class="list-group-item d-flex justify-content-between">Phase <span class="badge bg-secondary">{{ inst.status.phase }}</span></li>
         <li class="list-group-item d-flex justify-content-between">Hosts <span>{{ inst.status.hostsCompleted }}/{{ inst.status.hosts }}</span></li>
-        <li class="list-group-item d-flex justify-content-between">Shards × Replicas <span>{{ inst.values.get('layout', {}).get('shardsCount', '?') }} × {{ inst.values.get('layout', {}).get('replicasCount', '?') }}</span></li>
-        <li class="list-group-item d-flex justify-content-between">Image <span>{{ inst.values.get('image', {}).get('tag', '?') }}</span></li>
+        <li class="list-group-item d-flex justify-content-between">Shards × Replicas <span>{{ inst['values'].get('layout', {}).get('shardsCount', '?') }} × {{ inst['values'].get('layout', {}).get('replicasCount', '?') }}</span></li>
+        <li class="list-group-item d-flex justify-content-between">Image <span>{{ inst['values'].get('image', {}).get('tag', '?') }}</span></li>
       </ul>
     </div>
   </div>
   <div class="col-md-8">
+    {% if apply_log and apply_log.entries %}
+    <div class="card shadow-sm mb-3">
+      <div class="card-header d-flex justify-content-between">
+        <span>Last apply</span>
+        <small class="text-muted">{{ apply_log.timestamp }}</small>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr><th>Kind</th><th>Name</th><th>Namespace</th><th>Action</th><th>Live</th></tr>
+          </thead>
+          <tbody>
+            {% for e in apply_log.entries %}
+            <tr>
+              <td>{{ e.kind }}</td>
+              <td><code>{{ e.name }}</code></td>
+              <td>{{ e.namespace or '—' }}</td>
+              <td><span class="badge bg-{{ 'success' if e.action == 'created' else 'primary' }}">{{ e.action }}</span></td>
+              <td>
+                {% if e.live is true %}<span class="badge bg-success">present</span>
+                {% elif e.live is false %}<span class="badge bg-danger">missing</span>
+                {% else %}<span class="badge bg-secondary">unknown</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
     <div class="card shadow-sm">
       <div class="card-header">Rendered manifests</div>
       <div class="card-body p-0">

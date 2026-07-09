@@ -4,11 +4,15 @@ The chart stays the single source of truth for how form values become a
 ClickHouseInstallation. We only ever run `helm template` (never install) and
 apply the output through the Kubernetes API elsewhere.
 """
+import logging
 import os
+import shlex
 import subprocess
 import tempfile
 
 import yaml
+
+log = logging.getLogger("chmanager.chart")
 
 import schema as schema_mod
 
@@ -87,19 +91,21 @@ def render_manifests(release, namespace, values):
     with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as fh:
         yaml.safe_dump(values, fh)
         values_file = fh.name
+    cmd = ["helm", "template", release, CHART_PATH, "-n", namespace, "-f", values_file]
+    log.info("running: %s", " ".join(shlex.quote(c) for c in cmd))
+    log.debug("values file %s:\n%s", values_file, yaml.safe_dump(values))
     try:
-        result = subprocess.run(
-            ["helm", "template", release, CHART_PATH, "-n", namespace, "-f", values_file],
-            capture_output=True,
-            text=True,
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
+            log.error("helm template failed (exit %s): %s", result.returncode, result.stderr.strip())
             raise RuntimeError(result.stderr.strip() or "helm template failed")
-        return [
+        docs = [
             doc
             for doc in yaml.safe_load_all(result.stdout)
             if doc and not _is_test_hook(doc)
         ]
+        log.info("helm template rendered %d manifests", len(docs))
+        return docs
     finally:
         os.unlink(values_file)
 
