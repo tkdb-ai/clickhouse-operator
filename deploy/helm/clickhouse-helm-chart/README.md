@@ -444,7 +444,15 @@ kubectl logs <keeper-pod> -c clickhouse-keeper -n <namespace>
 ```
 
 ### PVCs stuck in Pending
-Check the storage class exists and has a provisioner:
+The `storageClassName` values default to `''`, which tells Kubernetes to use the
+cluster's **default StorageClass**. On most managed clusters (EKS, GKE, AKS,
+Docker Desktop, minikube) this works out of the box. If your cluster has **no
+default StorageClass**, PVCs will stay Pending — set the class explicitly, e.g.
+`--set storage.data.storageClassName=<class>` (and
+`coordination.keeper.storage.storageClassName` when using Keeper).
+
+Check whether a default StorageClass exists (look for `(default)` next to a name)
+and that it has a provisioner:
 ```bash
 kubectl get storageclass
 kubectl describe pvc -n <namespace>
