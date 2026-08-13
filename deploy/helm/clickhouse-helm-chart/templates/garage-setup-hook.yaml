@@ -157,7 +157,7 @@ spec:
               kubectl create secret generic "$SECRET_NAME" -n "$NAMESPACE" \
                 --from-literal=access-key-id="$KEY_ID" \
                 --from-literal=secret-access-key="$SECRET_KEY" \
-                --dry-run=client -o yaml | kubectl apply -f -
+                --dry-run=client -o yaml | kubectl apply --validate=false -f -
 
               echo "=== Garage setup complete ==="
               echo "S3 endpoint : {{ .Release.Name }}-garage:3900"
