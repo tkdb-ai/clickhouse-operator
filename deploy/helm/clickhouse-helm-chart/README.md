@@ -6,7 +6,26 @@ Deploys a `ClickHouseInstallation` (CHI) custom resource managed by the [Altinit
 
 - Kubernetes 1.21+
 - Helm 3.x
-- [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator) installed
+- [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator) installed **and scoped to a specific namespace** (see below)
+
+> ⚠️ **The operator must watch a specific namespace, not run cluster-wide.**
+> When the operator runs cluster-wide (`WATCH_NAMESPACES=""` / `NamespaceAll`), its
+> Keeper (`ClickHouseKeeperInstallation`) controller never reconciles the CHK into a
+> StatefulSet — the Keeper pod is never created, and any chart deployed with
+> `coordination.mode: keeper` comes up without coordination (no replication / distributed DDL).
+> This affects at least operator 0.27.0 and 0.27.1.
+>
+> Set the watch namespace when installing/upgrading the operator, e.g.:
+> ```bash
+> helm upgrade --install clickhouse-operator \
+>   clickhouse-operator/altinity-clickhouse-operator -n clickhouse-operator \
+>   --set operator.watchNamespaces="{clickhouse-db}"
+> ```
+> (Or set the `WATCH_NAMESPACES` env var on the operator Deployment to the namespace
+> where this chart is installed.) Verify the Keeper came up:
+> ```bash
+> kubectl -n <namespace> get chk,sts,pods | grep keeper
+> ```
 
 ## Quick Start
 
@@ -64,11 +83,11 @@ Replication requires a coordination service (`coordination.mode: keeper` or `zoo
 | Value | Default | Description |
 |---|---|---|
 | `storage.data.size` | `10Gi` | Data PVC size |
-| `storage.data.storageClassName` | `hostpath` | Storage class — change for your cluster |
+| `storage.data.storageClassName` | `''` | Storage class — blank uses the cluster default; set to your class name for your cluster |
 | `storage.data.accessModes` | `[ReadWriteOnce]` | PVC access modes |
 | `storage.log.enabled` | `false` | Create a separate PVC for ClickHouse logs |
 | `storage.log.size` | `2Gi` | Log PVC size |
-| `storage.log.storageClassName` | `standard` | Storage class for log PVC |
+| `storage.log.storageClassName` | `''` | Storage class for log PVC — blank uses the cluster default |
 | `storage.log.accessModes` | `[ReadWriteOnce]` | PVC access modes |
 
 ---
@@ -92,7 +111,7 @@ Deploys a `ClickHouseKeeperInstallation` (CHK) managed by the same operator — 
 | `coordination.keeper.image.tag` | `"24.8"` | Keeper image tag |
 | `coordination.keeper.image.pullPolicy` | `IfNotPresent` | Pull policy |
 | `coordination.keeper.storage.size` | `10Gi` | Keeper data PVC size |
-| `coordination.keeper.storage.storageClassName` | `hostpath` | Storage class |
+| `coordination.keeper.storage.storageClassName` | `''` | Storage class — blank uses the cluster default |
 | `coordination.keeper.storage.accessModes` | `[ReadWriteOnce]` | PVC access modes |
 | `coordination.keeper.resources` | `{}` | CPU/memory limits and requests |
 
@@ -425,7 +444,15 @@ kubectl logs <keeper-pod> -c clickhouse-keeper -n <namespace>
 ```
 
 ### PVCs stuck in Pending
-Check the storage class exists and has a provisioner:
+The `storageClassName` values default to `''`, which tells Kubernetes to use the
+cluster's **default StorageClass**. On most managed clusters (EKS, GKE, AKS,
+Docker Desktop, minikube) this works out of the box. If your cluster has **no
+default StorageClass**, PVCs will stay Pending — set the class explicitly, e.g.
+`--set storage.data.storageClassName=<class>` (and
+`coordination.keeper.storage.storageClassName` when using Keeper).
+
+Check whether a default StorageClass exists (look for `(default)` next to a name)
+and that it has a provisioner:
 ```bash
 kubectl get storageclass
 kubectl describe pvc -n <namespace>

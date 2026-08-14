@@ -22,13 +22,13 @@ image:
 storage:
   data:
     size: 10Gi
-    storageClassName: "" # uses cluster default StorageClass
+    storageClassName: '' # Leave blank to use the cluster default StorageClass; set to your class name (e.g. hostpath, gp3) as needed
     accessModes:
       - ReadWriteOnce
   log:
     enabled: false
     size: 2Gi
-    storageClassName: "" # uses cluster default StorageClass
+    storageClassName: '' # Leave blank to use the cluster default StorageClass
     accessModes:
       - ReadWriteOnce
 
@@ -47,7 +47,7 @@ coordination:
       pullPolicy: IfNotPresent
     storage:
       size: 10Gi
-      storageClassName: "" # uses cluster default StorageClass
+      storageClassName: '' # Leave blank to use the cluster default StorageClass
       accessModes:
         - ReadWriteOnce
     resources: {}

@@ -149,6 +149,14 @@ anti-affinity so Keeper pods spread across nodes.
 kubectl get chk <fullname>-keeper -n <ns>
 ```
 
+> ⚠️ **Operator must be scoped to a namespace for `keeper` mode.** If the CHK stays
+> empty (no StatefulSet, no Keeper pod) and the CHI logs `keeper not ready ... wait
+> timeout`, the operator is running cluster-wide. Its Keeper controller only
+> reconciles the CHK when the operator watches a specific namespace
+> (`WATCH_NAMESPACES=<ns>`), not `NamespaceAll`. See the operator note in
+> [README.md](README.md#prerequisites). ClickHouse itself will still start, but
+> without coordination.
+
 ---
 
 ## Distributed DDL & the `main` cluster
