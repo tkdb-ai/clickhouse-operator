@@ -10,7 +10,7 @@ fullnameOverride: ''
 # Cluster Layout
 layout:
   shardsCount: 1
-  replicasCount: 2
+  replicasCount: 1
 
 # ClickHouse Image
 image:
@@ -86,7 +86,7 @@ quotas: {}
 resources:
   limits:
     cpu: 1000m
-    memory: 2Gi
+    memory: 4Gi
   requests:
     cpu: 500m
     memory: 1Gi
@@ -119,10 +119,36 @@ files: {}
   #       <!-- dictionary config -->
   #   </yandex>
 
-# Tabix UI
-# A standalone UI to manage ClickHouse
-tabix-ui:
+# CH-UI — modern web client to manage ClickHouse (https://github.com/caioricciuti/ch-ui)
+ch-ui:
   enabled: true
+  replicaCount: 1
+  image:
+    repository: ghcr.io/caioricciuti/ch-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 5521
+  # ClickHouse connection for the UI's default session.
+  clickhouse:
+    # HTTP endpoint. Blank auto-targets this release's in-cluster ClickHouse
+    # service (http://clickhouse-<release>-clickhouse-installation:8123).
+    url: ""
+    user: admin
+    # Password is read from a Secret. Blank existingSecret uses this release's
+    # admin secret (<release>-clickhouse-installation-admin, key "admin").
+    existingSecret: ""
+    secretKey: admin
+    # Enable advanced/admin features in the UI (requires an admin-capable user).
+    useAdvanced: true
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
 
 # Backup — clickhouse-backup sidecar (https://github.com/Altinity/clickhouse-backup)
 # Runs as a sidecar alongside ClickHouse, exposes a REST API on port 7171.

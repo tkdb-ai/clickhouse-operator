@@ -203,13 +203,13 @@
             }
         },
 
-        "tabix-ui": {
+        "ch-ui": {
             "type": "object",
             "additionalProperties": true,
             "properties": {
                 "enabled": {
                     "type": "boolean", "default": true,
-                    "title": "Tabix UI",
+                    "title": "CH-UI",
                     "x-form": { "group": "Add-ons", "order": 4 }
                 }
             }

@@ -70,13 +70,14 @@ Garage S3 is enabled.
 
 Garage is disabled. Set garage.enabled=true to deploy an in-cluster S3-compatible store for backups and tiered storage.
 {{- end }}
-{{- if (index .Values "tabix-ui").enabled }}
+{{- if (index .Values "ch-ui").enabled }}
 
-Tabix UI is enabled.
+CH-UI is enabled.
    Access the web UI:
-   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-tabix-ui 8080:80
-   Then open: http://localhost:8080
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "clickhouse.fullname" . }}-ch-ui 5521:5521
+   Then open: http://localhost:5521
+   It connects to ClickHouse automatically as the admin user.
 {{- else }}
 
-Tabix UI is disabled. Set tabix-ui.enabled=true to deploy the ClickHouse web UI.
+CH-UI is disabled. Set ch-ui.enabled=true to deploy the ClickHouse web UI.
 {{- end }}
