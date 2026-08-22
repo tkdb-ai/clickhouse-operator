@@ -1,0 +1,35 @@
+clickhouse:
+  antiAffinity: true
+  replicasCount: 3
+  nodeSelector:
+    node.kubernetes.io/instance-type: "m7i.large"
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: gp3-encrypted
+  topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        clickhouse-keeper.altinity.com/cluster: chk-test
+
+keeper:
+  enabled: true
+  replicaCount: 3
+  zoneSpread: true
+  localStorage:
+    size: 5Gi
+    storageClass: gp3-encrypted
+  metricsPort: "7000"
+  settings:
+    prometheus/endpoint: /metrics
+    prometheus/port: 7000
+    prometheus/metrics: true
+    prometheus/events: true
+    prometheus/asynchronous_metrics: true
+    prometheus/status_info: true
+  podAnnotations:
+    prometheus.io/port: "7000"
+    prometheus.io/scrape: "true"

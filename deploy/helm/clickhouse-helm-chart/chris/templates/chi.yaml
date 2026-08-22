@@ -1,0 +1,265 @@
+{{- $service_name := tpl (include "clickhouse.serviceTemplateName" . ) . -}}
+---
+apiVersion: "clickhouse.altinity.com/v1"
+kind: ClickHouseInstallation
+metadata:
+  name: {{ include "clickhouse.fullname" . }}
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+spec:
+  defaults:
+    templates:
+      serviceTemplate: {{ $service_name }}
+      {{- if .Values.clickhouse.lbService.enabled }}
+      clusterServiceTemplate: {{ $service_name }}-lb
+      {{- end }}
+      podTemplate: {{ include "clickhouse.podTemplateName" . }}
+      {{- if .Values.clickhouse.persistence.enabled }}
+      dataVolumeClaimTemplate: {{ include "clickhouse.volumeClaimTemplateName" . }}
+      {{- end }}
+      {{- if .Values.clickhouse.persistence.logs.enabled }}
+      logVolumeClaimTemplate: {{ include "clickhouse.logsVolumeClaimTemplateName" . }}
+      {{- end }}
+  templates:
+    podTemplates:
+      - name: {{ include "clickhouse.podTemplateName" . }}
+        {{ include "clickhouse.podTemplateBase" . }}
+      {{- if not (empty .Values.clickhouse.zones) -}}
+      {{- $originalContext := . -}}
+      {{- range .Values.clickhouse.zones }}
+      - name: {{ include "clickhouse.podTemplateName" $originalContext }}-{{ . }}
+        {{ include "clickhouse.podTemplateBase" $originalContext }}
+        zone:
+          values:
+            - {{ . }}
+      {{- end }}
+      {{- end }}
+    serviceTemplates:
+      - name: "{{ $service_name }}"
+        metadata:
+          {{- with .Values.clickhouse.service.serviceAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          labels:
+            {{- include "clickhouse.labels" . | nindent 12 }}
+            {{- with .Values.clickhouse.service.serviceLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        spec:
+          type: {{ .Values.clickhouse.service.type }}
+          ports:
+            - name: http
+              port: 8123
+              targetPort: 8123
+            - name: tcp
+              port: 9000
+              targetPort: 9000
+            {{- if .Values.clickhouse.extraPorts }}
+            {{- range .Values.clickhouse.extraPorts }}
+            - name: {{ .name }}
+              port: {{ .containerPort }}
+              targetPort: {{ .containerPort }}
+            {{- end }}
+            {{- end }}
+          selector:
+            {{- include "clickhouse.selectorLabels" . | nindent 12 }}
+      {{- if .Values.clickhouse.lbService.enabled }}
+      - name: "{{ $service_name }}-lb"
+        metadata:
+          labels:
+            {{- include "clickhouse.labels" . | nindent 12 }}
+            {{- with .Values.clickhouse.lbService.serviceLabels }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.clickhouse.lbService.serviceAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          type: "LoadBalancer"
+          {{- if .Values.clickhouse.lbService.loadBalancerSourceRanges }}
+          loadBalancerSourceRanges:
+            {{- toYaml .Values.clickhouse.lbService.loadBalancerSourceRanges | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              port: 8123
+              targetPort: 8123
+            - name: tcp
+              port: 9000
+              targetPort: 9000
+            {{- if .Values.clickhouse.extraPorts }}
+            {{- range .Values.clickhouse.extraPorts }}
+            - name: {{ .name }}
+              port: {{ .containerPort }}
+              targetPort: {{ .containerPort }}
+            {{- end }}
+            {{- end }}
+          selector:
+            {{- include "clickhouse.selectorLabels" . | nindent 12 }}
+      {{- end }}
+    {{- if or .Values.clickhouse.persistence.enabled .Values.clickhouse.persistence.logs.enabled }}
+    volumeClaimTemplates:
+      {{- if .Values.clickhouse.persistence.enabled }}
+      - name: {{ include "clickhouse.volumeClaimTemplateName" . }}
+        reclaimPolicy: Retain
+        spec:
+          {{- with .Values.clickhouse.persistence.accessMode }}
+          accessModes:
+            - {{ . }}
+          {{- end }}
+          {{- with .Values.clickhouse.persistence.storageClass }}
+          storageClassName: {{ . }}
+          {{- end }}
+          resources:
+            requests:
+              storage: {{ .Values.clickhouse.persistence.size }}
+      {{- end }}
+      {{- if .Values.clickhouse.persistence.logs.enabled }}
+      - name: {{ include "clickhouse.logsVolumeClaimTemplateName" . }}
+        reclaimPolicy: Retain
+        spec:
+          {{- with .Values.clickhouse.persistence.logs.accessMode }}
+          accessModes:
+            - {{ . }}
+          {{- end }}
+          {{- with .Values.clickhouse.persistence.logs.storageClass }}
+          storageClassName: {{ . }}
+          {{- end }}
+          resources:
+            requests:
+              storage: {{ .Values.clickhouse.persistence.logs.size }}
+      {{- end }}
+    {{- end }}
+  configuration:
+    users:
+      default/networks/ip: {{ include "clickhouse.defaultUser.ip" . | quote }}
+      default/access_management: 1
+      default/named_collection_control: 1
+      default/show_named_collections: 1
+      default/show_named_collections_secrets: 1
+      default/password:
+        valueFrom:
+          secretKeyRef:
+            name: {{ .Values.clickhouse.defaultUser.password_secret_name | default (include "clickhouse.credentialsName" .) | quote }}
+            key: password
+      {{- range .Values.clickhouse.users }}
+      {{ required "A user must have a name" .name }}/access_management: {{ .accessManagement | default 0}}
+      {{- if kindIs "slice" .hostIP }}
+      {{ .name }}/networks/ip:
+      {{- range .hostIP }}
+      - {{ . | quote }}
+      {{- end }}
+      {{- else }}
+      {{ .name }}/networks/ip: {{ .hostIP | default "0.0.0.0/0" | quote }}
+      {{- end }}
+      {{- if .grants }}
+      {{ .name }}/grants/query:
+      {{- range .grants }}
+      - {{ . | quote}}
+      {{- end }}
+      {{- end }}
+      {{- if .password_secret_name }}
+      {{ .name }}/password:
+        valueFrom:
+          secretKeyRef:
+            name: {{ .password_secret_name | quote }}
+            key: password
+      {{- else if .password_sha256_hex }}
+      {{ .name }}/password_sha256_hex: {{ .password_sha256_hex | quote }}
+      {{- end }}
+      {{- if .profile }}
+      {{ .name }}/profile: {{ .profile | quote }}
+      {{- end }}
+      {{- if .settings }}
+      {{- $user := .name }}
+      {{- range $key, $value := .settings }}
+      {{ $user }}/{{ $key }}: "{{ $value }}"
+      {{- end }}
+      {{- end }}
+      {{- end }}
+    {{- if .Values.clickhouse.profiles }}
+    profiles:
+    {{- range $profile, $settings := .Values.clickhouse.profiles }}
+      {{- range $key, $value := $settings }}
+      {{ $profile }}/{{ $key }}: "{{ $value }}"
+      {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if .Values.clickhouse.settings }}
+    settings:
+    {{- range $key, $value := .Values.clickhouse.settings }}
+      {{ $key }}: "{{ $value }}"
+    {{- end }}
+    {{- end }}
+    clusters:
+      - name: {{ include "clickhouse.clustername" . }}
+        {{- if .Values.clickhouse.clusterSecret.enabled }}
+        {{- if .Values.clickhouse.clusterSecret.secure }}
+        secure: "yes"
+        {{- end }}
+        secret:
+          {{- if .Values.clickhouse.clusterSecret.auto }}
+          auto: "true"
+          {{- else if .Values.clickhouse.clusterSecret.value }}
+          value: {{ .Values.clickhouse.clusterSecret.value | quote }}
+          {{- else if .Values.clickhouse.clusterSecret.valueFrom.secretKeyRef.name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.clickhouse.clusterSecret.valueFrom.secretKeyRef.name | quote }}
+              key: {{ .Values.clickhouse.clusterSecret.valueFrom.secretKeyRef.key | quote }}
+          {{- end }}
+        {{- end }}
+        layout:
+          {{- if (empty .Values.clickhouse.zones) }}
+          shardsCount: {{ .Values.clickhouse.shardsCount | default 1 }}
+          replicasCount: {{ .Values.clickhouse.replicasCount | default 1 }}
+          {{- else }}
+          shards:
+          {{- $originalContext := . -}}
+          {{- $shardsCount := .Values.clickhouse.shardsCount | default 1 | int -}}
+          {{- range $shardIndex := until $shardsCount }}
+            - name: shard{{ $shardIndex }}
+              replicas:
+                {{- range $zone :=  $originalContext.Values.clickhouse.zones }}
+                - templates:
+                    podTemplate: {{ include "clickhouse.podTemplateName" $originalContext }}-{{ $zone }}
+                {{- end -}}
+          {{- end -}}
+          {{- end -}}
+    {{- $keeper_host := tpl (include "clickhouse.keeper.host" . ) . -}}
+    {{- if not (empty $keeper_host) }}
+    zookeeper:
+        nodes:
+          - host: {{ $keeper_host }}
+            port: {{ .Values.clickhouse.keeper.port }}
+    {{- end }}
+    {{- $extraConfig := tpl (include "clickhouse.extraConfig" . ) . -}}
+    {{- $extraUsers := tpl (include "clickhouse.extraUsers" . ) . -}}
+    {{- $hasConfigFiles := not (empty .Values.clickhouse.configurationFiles) -}}
+    {{- if or (not (and (empty $extraConfig) (empty $extraUsers))) $hasConfigFiles }}
+    files:
+        {{- if not (empty $extraConfig) }}
+        config.d/extra_config.xml: |
+          {{- tpl $extraConfig . | nindent 10 }}
+        {{- end }}
+        {{- if not (empty $extraUsers) }}
+        users.d/extra_users.xml: |
+          {{- tpl $extraUsers . | nindent 10 }}
+        {{- end }}
+        {{- range $path, $content := .Values.clickhouse.configurationFiles }}
+        {{- if kindIs "string" $content }}
+        {{ $path }}: |
+          {{- $content | nindent 10 }}
+        {{- else }}
+        {{ $path }}:
+          {{- toYaml $content | nindent 10 }}
+        {{- end }}
+        {{- end }}
+    {{- end }}
+  {{- if not (empty .Values.namespaceDomainPattern) }}
+  namespaceDomainPattern: {{ .Values.namespaceDomainPattern | quote }}
+  {{- end }}
+
+{{ include "validate.clickhouse.keeper" . }}

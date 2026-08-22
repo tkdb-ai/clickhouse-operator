@@ -119,6 +119,7 @@ files: {}
   #       <!-- dictionary config -->
   #   </yandex>
 
+<<<<<<< HEAD
 # CH-UI — modern web client to manage ClickHouse (https://github.com/caioricciuti/ch-ui)
 ch-ui:
   enabled: true
@@ -149,6 +150,12 @@ ch-ui:
     requests:
       cpu: 50m
       memory: 128Mi
+=======
+# Tabix UI
+# A standalone UI to manage ClickHouse
+tabix-ui:
+  enabled: false
+>>>>>>> f2bbf45502e69420a7f3ae80f3273585b5c57845
 
 # Backup — clickhouse-backup sidecar (https://github.com/Altinity/clickhouse-backup)
 # Runs as a sidecar alongside ClickHouse, exposes a REST API on port 7171.
@@ -256,3 +263,22 @@ podTemplate:
 serviceTemplate:
   type: ClusterIP
   # annotations: {}
+<<<<<<< HEAD
+=======
+
+# Ingress — expose the ClickHouse HTTP interface (port 8123) via a stable FQDN.
+# Requires an ingress controller (e.g. nginx, traefik) in your cluster.
+# For native TCP protocol access (port 9000), use serviceTemplate.type: LoadBalancer
+# and point your DNS record at the assigned external IP instead.
+ingress:
+  enabled: false
+  className: ""                    # e.g. "nginx", "traefik"
+  host: clickhouse.example.com
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls: []
+    # - secretName: clickhouse-tls
+    #   hosts:
+    #     - clickhouse.example.com
+>>>>>>> f2bbf45502e69420a7f3ae80f3273585b5c57845
