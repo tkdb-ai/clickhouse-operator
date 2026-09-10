@@ -1,0 +1,67 @@
+{{- $chui := index .Values "ch-ui" -}}
+{{- if $chui.enabled }}
+{{- $chi := include "clickhouse.fullname" . -}}
+{{- $url := $chui.clickhouse.url | default (printf "http://clickhouse-%s:8123" $chi) -}}
+{{- $secret := $chui.clickhouse.existingSecret | default (printf "%s-admin" $chi) -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $chi }}-ch-ui
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ch-ui
+spec:
+  replicas: {{ $chui.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "clickhouse.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: ch-ui
+  template:
+    metadata:
+      labels:
+        {{- include "clickhouse.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: ch-ui
+    spec:
+      containers:
+        - name: ch-ui
+          image: "{{ $chui.image.repository }}:{{ $chui.image.tag }}"
+          imagePullPolicy: {{ $chui.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ $chui.service.port }}
+              protocol: TCP
+          env:
+            - name: VITE_CLICKHOUSE_URL
+              value: {{ $url | quote }}
+            - name: VITE_CLICKHOUSE_USER
+              value: {{ $chui.clickhouse.user | quote }}
+            - name: VITE_CLICKHOUSE_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: {{ $chui.clickhouse.secretKey }}
+            {{- if $chui.clickhouse.useAdvanced }}
+            - name: VITE_CLICKHOUSE_USE_ADVANCED
+              value: "true"
+            {{- end }}
+          resources:
+            {{- toYaml $chui.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $chi }}-ch-ui
+  labels:
+    {{- include "clickhouse.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ch-ui
+spec:
+  type: {{ $chui.service.type }}
+  ports:
+    - port: {{ $chui.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "clickhouse.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: ch-ui
+{{- end }}

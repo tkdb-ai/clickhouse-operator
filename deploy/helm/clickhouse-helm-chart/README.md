@@ -294,11 +294,19 @@ When `backup.enabled=true` and `garage.enabled=true`, the backup sidecar automat
 
 ---
 
-### Tabix UI
+### CH-UI
 
 | Value | Default | Description |
 |---|---|---|
-| `tabix-ui.enabled` | `true` | Deploy the [Tabix](https://github.com/tabixio/tabix) web UI for ClickHouse |
+| `ch-ui.enabled` | `true` | Deploy the [CH-UI](https://github.com/caioricciuti/ch-ui) web client for ClickHouse |
+| `ch-ui.image.repository` | `ghcr.io/caioricciuti/ch-ui` | CH-UI image |
+| `ch-ui.image.tag` | `latest` | CH-UI image tag |
+| `ch-ui.service.port` | `5521` | Service/container port |
+| `ch-ui.clickhouse.url` | `''` | ClickHouse HTTP URL — blank auto-targets this release's in-cluster service |
+| `ch-ui.clickhouse.user` | `admin` | ClickHouse user the UI connects as |
+| `ch-ui.clickhouse.existingSecret` | `''` | Secret holding the password — blank uses this release's admin secret |
+| `ch-ui.clickhouse.secretKey` | `admin` | Key within the secret |
+| `ch-ui.clickhouse.useAdvanced` | `true` | Enable advanced/admin features in the UI |
 
 ---
 
@@ -371,7 +379,7 @@ storage:
   data:
     size: 5Gi
     storageClassName: standard
-tabix-ui:
+ch-ui:
   enabled: true
 podTemplate:
   sidecars: []

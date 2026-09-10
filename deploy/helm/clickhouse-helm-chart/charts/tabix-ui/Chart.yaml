@@ -1,6 +1,0 @@
-apiVersion: v2
-appVersion: latest
-description: A standalone Helm chart for Tabix UI to manage ClickHouse
-name: tabix-ui
-type: application
-version: 0.1.0

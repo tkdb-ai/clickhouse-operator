@@ -24,7 +24,7 @@ controls it is named in each section. Placeholders used throughout:
 - [Custom config files](#custom-config-files)
 - [Monitoring & metrics](#monitoring--metrics)
 - [Backup & restore](#backup--restore)
-- [Tabix web UI](#tabix-web-ui)
+- [CH-UI web client](#ch-ui-web-client)
 - [Resource limits & health probes](#resource-limits--health-probes)
 - [Pod & service customization](#pod--service-customization)
 - [Feature matrix](#feature-matrix)
@@ -348,13 +348,14 @@ integration tables so you can drive backups from SQL (`system.backup_actions`).
 
 ---
 
-## Tabix web UI
+## CH-UI web client
 
-`tabix-ui.enabled=true` (default) deploys the [Tabix](https://github.com/tabixio/tabix)
-browser SQL client:
+`ch-ui.enabled=true` (default) deploys [CH-UI](https://github.com/caioricciuti/ch-ui),
+a modern browser client for ClickHouse. It is pre-wired to this release's
+ClickHouse service and admin credentials, so it connects automatically:
 ```bash
-kubectl port-forward -n <ns> svc/<release>-tabix-ui 8080:80
-# open http://localhost:8080, connect to the ClickHouse HTTP endpoint
+kubectl port-forward -n <ns> svc/<release>-clickhouse-installation-ch-ui 5521:5521
+# open http://localhost:5521
 ```
 
 ---
@@ -396,7 +397,7 @@ cluster (secure it first — the `default` user allows all source IPs by default
 | S3 tiered storage (Garage) | `garage.enabled` | on |
 | Scheduled backups | `backup.enabled` | on |
 | Prometheus metrics | `monitoring.enabled` | on |
-| Tabix UI | `tabix-ui.enabled` | on |
+| CH-UI web client | `ch-ui.enabled` | on |
 | Claude Code MCP querying | `setup-mcp.sh` (repo root) | opt-in |
 | Separate log volume | `storage.log.enabled` | off |
 | Admin access management | `users.admin.access_management` | on |
