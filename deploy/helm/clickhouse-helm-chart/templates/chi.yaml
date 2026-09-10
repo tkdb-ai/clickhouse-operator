@@ -103,7 +103,24 @@ spec:
           </storage_configuration>
         </clickhouse>
       {{- end }}
-      {{- if and (not .Values.files) (not .Values.monitoring.enabled) (not .Values.garage.enabled) }}
+      {{- if .Values.namedCollections }}
+      named_collections.xml: |
+        <clickhouse>
+          <named_collections>
+            {{- range $name, $nc := .Values.namedCollections }}
+            <{{ $name }}>
+              <host>{{ $nc.host | default "localhost" }}</host>
+              <port>{{ $nc.port | default 9000 }}</port>
+              <user>{{ $nc.user | default "admin" }}</user>
+              <password from_env="CLICKHOUSE_ADMIN_PASSWORD"/>
+              <db>{{ $nc.db }}</db>
+              <table>{{ $nc.table }}</table>
+            </{{ $name }}>
+            {{- end }}
+          </named_collections>
+        </clickhouse>
+      {{- end }}
+      {{- if and (not .Values.files) (not .Values.monitoring.enabled) (not .Values.garage.enabled) (not .Values.namedCollections) }}
       {}
       {{- end }}
 
@@ -146,15 +163,20 @@ spec:
                 initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds | default 10 }}
                 periodSeconds: {{ .Values.readinessProbe.periodSeconds | default 10 }}
                 timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds | default 5 }}
-              {{- if or $podTemplate.extraEnv $podTemplate.extraVolumeMounts }}
-              {{- if $podTemplate.extraEnv }}
               env:
+                {{- /* Always present so named_collections.xml's from_env can resolve it -- same
+                      secret the backup sidecar already reads its CLICKHOUSE_PASSWORD from. */}}
+                - name: CLICKHOUSE_ADMIN_PASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "clickhouse.fullname" . }}-admin
+                      key: admin
+                {{- if $podTemplate.extraEnv }}
                 {{- toYaml $podTemplate.extraEnv | nindent 16 }}
-              {{- end }}
+                {{- end }}
               {{- if $podTemplate.extraVolumeMounts }}
               volumeMounts:
                 {{- toYaml $podTemplate.extraVolumeMounts | nindent 16 }}
-              {{- end }}
               {{- end }}
           {{- if $podTemplate.sidecars }}
           {{- toYaml $podTemplate.sidecars | nindent 12 }}

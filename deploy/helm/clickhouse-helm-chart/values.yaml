@@ -119,6 +119,21 @@ files: {}
   #       <!-- dictionary config -->
   #   </yandex>
 
+# Named Collections
+# Reusable connection definitions for dictionary/table sources, referenced as
+# SOURCE(CLICKHOUSE(NAME '<key>')) instead of hardcoding HOST/USER/PASSWORD in
+# every CREATE DICTIONARY. Rendered into named_collections.xml; password is
+# always the admin user's, read from the CLICKHOUSE_ADMIN_PASSWORD env var
+# (injected from the {{ fullname }}-admin secret, see templates/chi.yaml) --
+# never written into this file or any SQL. Set to {} to disable entirely.
+namedCollections:
+  user_labels_source:
+    host: localhost
+    port: 9000
+    user: admin
+    db: db
+    table: user_labels
+
 # Tabix UI
 # A standalone UI to manage ClickHouse
 tabix-ui:
