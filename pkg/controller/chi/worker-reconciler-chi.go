@@ -52,9 +52,6 @@ func (w *worker) reconcileCR(ctx context.Context, old, new *api.ClickHouseInstal
 	switch {
 	case w.isAfterFinalizerInstalled(old, new):
 		w.a.M(new).F().Info("isAfterFinalizerInstalled - continue reconcile-1")
-	case w.isGenerationTheSame(old, new):
-		log.V(2).M(new).F().Info("isGenerationTheSame() - nothing to do here, exit")
-		return nil
 	}
 
 	w.a.M(new).S().P()
@@ -63,6 +60,10 @@ func (w *worker) reconcileCR(ctx context.Context, old, new *api.ClickHouseInstal
 	metrics.CRInitZeroValues(ctx, new)
 	metrics.CRReconcilesStarted(ctx, new)
 	startTime := time.Now()
+
+	// Capture before buildCR: normalize/fillStatus overwrites status.chop-ip with
+	// the current operator pod IP, which would hide an IP change.
+	prevCHOpIP := new.Status.GetCHOpIP()
 
 	new = w.buildCR(ctx, new)
 
@@ -82,6 +83,10 @@ func (w *worker) reconcileCR(ctx context.Context, old, new *api.ClickHouseInstal
 		metrics.CRReconcilesAborted(ctx, new)
 		return nil
 	}
+
+	generationTheSame := w.isGenerationTheSame(old, new)
+	hasUnhealthyHosts := w.hasUnhealthyHosts(ctx, new)
+	operatorIPTheSame := w.isOperatorIPTheSame(prevCHOpIP)
 
 	switch {
 	case new.Spec.Suspend.Value():
@@ -107,10 +112,23 @@ func (w *worker) reconcileCR(ctx context.Context, old, new *api.ClickHouseInstal
 			metrics.CRReconcilesCompleted(ctx, new)
 		}
 		return nil
+	case generationTheSame && !hasUnhealthyHosts && operatorIPTheSame:
+		// Spec unchanged, hosts healthy, operator IP the same — nothing to do.
+		// Do not skip when unhealthy (#1704) or when operator IP changed (need to
+		// refresh clickhouse-operator user networks).
+		w.a.M(new).F().Info("isGenerationTheSame(), all hosts healthy, operator IP the same - nothing to do, exit")
+		metrics.CRReconcilesCompleted(ctx, new)
+		return nil
+	case generationTheSame && !hasUnhealthyHosts && !operatorIPTheSame:
+		w.a.M(new).F().Info("Operator IP changed - continue reconcile to refresh clickhouse-operator user networks")
 	case new.HasReconcileWork():
 		w.a.M(new).F().Info("CR has reconcile work - continue reconcile")
 	case w.isAfterFinalizerInstalled(new.GetAncestorT(), new):
 		w.a.M(new).F().Info("isAfterFinalizerInstalled - continue reconcile-2")
+	case w.crHasHostNeedingStuckRecovery(ctx, new):
+		w.a.M(new).F().Info("CR has a sustained-NotReady host - continue reconcile for stuck-host recovery")
+	case hasUnhealthyHosts:
+		w.a.M(new).F().Warning("Unhealthy hosts detected - continue reconcile for recovery")
 	default:
 		w.a.M(new).F().Info("No reconcile work - abort reconcile")
 		metrics.CRReconcilesCompleted(ctx, new)
@@ -358,6 +376,7 @@ func (w *worker) reconcileCRAuxObjectsFinal(ctx context.Context, cr *api.ClickHo
 	cr.GetRuntime().UnlockCommonConfig()
 
 	w.includeAllHostsIntoCluster(ctx, cr)
+	w.restartNewlyAddedHosts(ctx, cr)
 	return err
 }
 
@@ -369,6 +388,114 @@ func (w *worker) includeAllHostsIntoCluster(ctx context.Context, cr *api.ClickHo
 		}
 		return nil
 	})
+}
+
+// restartNewlyAddedHosts works around issue #2013: a replica added to an already-existing
+// multi-host cluster starts ClickHouse before the operator publishes the full remote_servers,
+// so any cluster-dependent object (Distributed / DICTIONARY / refreshable MV) fails its async
+// startup table load with CLUSTER_DOESNT_EXIST. ClickHouse never re-runs terminal FAILED/CANCELED
+// loader jobs, so the operator's later SYSTEM RELOAD CONFIG (which only adds the cluster to
+// system.clusters) does not recover them - the new replica stays broken until a manual restart.
+// The complete remote_servers is published just above (reconcileConfigMapCommon +
+// includeAllHostsIntoCluster), so restarting the newly-added hosts here re-runs their loader jobs
+// against the real cluster.
+//
+// Why a restart and not "seed the full remote_servers before the pod boots": remote_servers is in
+// the shared common ConfigMap, and getRemoteServersGeneratorOptions() deliberately excludes a host
+// that has no StatefulSet yet (advertising it would break existing pods' cluster-wide operations -
+// see the comment there). So the new host cannot be handed the complete topology before it exists
+// without harming existing pods; restarting only the new host after publish is the resolution.
+//
+// This ONLY ever restarts newly-added hosts. Existing hosts (ObjectStatusFound/Same, HasAncestor)
+// are never in the set - they pick up config changes via ConfigMap-propagation-wait + ClickHouse's
+// own config auto-reload, and must never be restarted. Gated to scale-up only, AND only to hosts
+// that actually recorded a terminal CLUSTER_DOESNT_EXIST load failure (the positive #2013 signal) -
+// so a fresh install, a single-host cluster, or a plain-replica scale-up with no cluster-dependent
+// objects (including a legitimately-lagging replica) is never restarted.
+func (w *worker) restartNewlyAddedHosts(ctx context.Context, cr *api.ClickHouseInstallation) {
+	if util.IsContextDone(ctx) {
+		log.V(1).Info("Reconcile is aborted. Restart newly added hosts: %s ", cr.GetName())
+		return
+	}
+
+	cr.WalkHosts(func(host *api.Host) error {
+		// Only hosts created during THIS reconcile. reconcileHost flips a Requested host to
+		// ObjectStatusCreated; on any later reconcile it HasAncestor() and is Found/Same, so this
+		// restart is one-shot and never loops.
+		if !host.GetReconcileAttributes().GetStatus().Is(types.ObjectStatusCreated) {
+			return nil
+		}
+		// Single-node clusters reference only localhost in remote_servers, which always resolves -
+		// there is no boot-before-cluster window to close.
+		if host.GetCluster().IsSingleNode() {
+			return nil
+		}
+		// Scale-up only. On an INITIAL cluster creation every host is ObjectStatusCreated too, but
+		// none can hit CLUSTER_DOESNT_EXIST (no pre-existing cluster-dependent objects at first
+		// boot) - restarting them would just add a pointless restart to every fresh install.
+		// IsInNewCluster() (no ancestor AND all hosts added this reconcile) is true exactly for a
+		// brand-new cluster; a scale-up added only some hosts, so it is false there. Same predicate
+		// shouldMigrateTables uses to tell a scale-up host from a fresh-cluster host.
+		if host.IsInNewCluster() {
+			return nil
+		}
+		if host.IsStopped() || host.IsTroubleshoot() {
+			return nil
+		}
+		// Restart ONLY if this host actually hit the #2013 condition: a terminal CLUSTER_DOESNT_EXIST
+		// async-load failure (a Distributed / DICTIONARY / refreshable-MV object that failed to load
+		// because the host booted before its remote_servers was complete). ClickHouse never re-runs
+		// such terminal loaders after a config reload, so a restart is the only recovery. Gating on
+		// this positive per-host failure signal - rather than on host-newness or pod-readiness - is
+		// what makes the restart precise: a plain-ReplicatedMergeTree replica with no cluster-dependent
+		// objects (e.g. a legitimately-lagging replica) records zero such errors and is left untouched,
+		// so its normal sync/delay behavior is never disrupted.
+		if !w.hostHitClusterDoesNotExist(ctx, host) {
+			w.a.V(1).M(host).F().Info("Skip restart of newly-added host - no CLUSTER_DOESNT_EXIST load failure. Host: %s", host.GetName())
+			return nil
+		}
+
+		w.a.V(1).M(host).F().Info("Restart newly-added host to re-load cluster-dependent objects against full remote_servers. Host: %s", host.GetName())
+		w.task.WaitForConfigMapPropagation(ctx, host)
+		if err := w.hostSoftwareRestart(ctx, host); err != nil {
+			// Best-effort, matching includeAllHostsIntoCluster: the reconcile already succeeded and
+			// the host serves queries; if the restart fails the cluster-dependent objects stay
+			// broken and need a manual restart, so surface it but do not fail the reconcile.
+			w.a.V(1).M(host).F().Warning("Failed to restart newly-added host; it may need a manual restart. Host: %s err: %v", host.GetName(), err)
+			return nil
+		}
+		// The restart also wipes non-persistent schema the operator migrated to this host BEFORE the
+		// restart - notably the contents of an Engine=Memory database, which live in RAM only and are
+		// gone after the reboot with nothing to restore them (they are not ZK-replicated). Re-run table
+		// migration so those objects are recreated. HostCreateTables issues CREATE ... IF NOT EXISTS,
+		// so persistent objects are untouched; best-effort, so it never fails the reconcile.
+		if err := w.migrateTables(ctx, host, NewMigrateTableOptions()); err != nil {
+			w.a.V(1).M(host).F().Warning("Post-restart table re-migration failed on newly-added host. Host: %s err: %v", host.GetName(), err)
+		}
+		return nil
+	})
+}
+
+// hostHitClusterDoesNotExist reports whether the host recorded a terminal CLUSTER_DOESNT_EXIST
+// async-load failure (the #2013 signal). Best-effort: on a query error it returns false - safer to
+// skip the restart than to disrupt a healthy/syncing host on an inconclusive read.
+func (w *worker) hostHitClusterDoesNotExist(ctx context.Context, host *api.Host) bool {
+	n, err := w.ensureClusterSchemer(host).HostClusterDoesNotExistErrorCount(ctx, host)
+	if err != nil {
+		w.a.V(1).M(host).F().Warning("Cannot read CLUSTER_DOESNT_EXIST error count on newly-added host; skipping restart. Host: %s err: %v", host.GetName(), err)
+	}
+	return clusterDoesNotExistErrorIndicatesRestart(n, err)
+}
+
+// clusterDoesNotExistErrorIndicatesRestart maps a CLUSTER_DOESNT_EXIST error-count read to the
+// #2013 restart decision. A read error is inconclusive and yields false (skip) - safer to leave a
+// healthy/syncing host alone than to restart on an unreliable read; only a positive count (the
+// terminal load-failure signal) yields true.
+func clusterDoesNotExistErrorIndicatesRestart(n int, err error) bool {
+	if err != nil {
+		return false
+	}
+	return n > 0
 }
 
 // reconcileConfigMapCommon reconciles common ConfigMap
@@ -433,6 +560,20 @@ func (w *worker) reconcileHostStatefulSet(ctx context.Context, host *api.Host, o
 
 	w.stsReconciler.PrepareHostStatefulSetWithStatus(ctx, host, host.IsStopped())
 	opts = w.prepareStsReconcileOptsWaitSection(host, opts)
+
+	// #1704: this is the first point where the host's status reflects the desired StatefulSet,
+	// so it is the first point where "would this pass take the pod down?" can be answered
+	// honestly. Defer only that - everything before here (ConfigMap, Service, PVCs) has already
+	// been reconciled, so a converged host in a degraded shard still gets its config refreshed.
+	if w.hostDisruptionWouldDegradeShard(ctx, host) {
+		host.GetCR().IEnsureStatus().ReconcileAbortWithReason(
+			api.StatusReasonShardHasNoHealthyPeer,
+			fmt.Sprintf("host %s: shard has no other healthy replica to serve during a roll", host.GetName()))
+		w.a.V(1).M(host).F().
+			WithEvent(host.GetCR(), a.EventActionReconcile, a.EventReasonHostReconcileDeferredShardSafety).
+			Warning("Deferring host StatefulSet reconcile: shard has no other healthy replica. Host: %s", host.GetName())
+		return common.ErrCRUDDeferred
+	}
 
 	// Start with force-restart host.
 	// If a pod-template rollout is already coming via the StatefulSet reconcile below, skip
@@ -534,7 +675,14 @@ func hostRequiresStatefulSetRollout(host *api.Host) bool {
 func (w *worker) hostForceRestart(ctx context.Context, host *api.Host, opts *statefulset.ReconcileOptions) error {
 	w.a.V(1).M(host).F().Info("Reconcile host. Force restart: %s", host.GetName())
 
-	if host.IsStopped() || (w.hostSoftwareRestart(ctx, host) != nil) {
+	// A sustained-NotReady pod won't be healed by an in-place software restart: the
+	// unreadiness may originate outside ClickHouse, and hostSoftwareRestart's readiness
+	// wait would just time out before falling back to scale-down. Recreate the pod
+	// directly (scale-down here, scale-up by the caller's StatefulSet reconcile).
+	stuckNotReady := chop.Config().ShouldRecoverCompletedOnPodNotReady() &&
+		w.isPodSustainedNotReady(ctx, host, chop.Config().CompletedOnPodNotReadyThreshold())
+
+	if host.IsStopped() || stuckNotReady || (w.hostSoftwareRestart(ctx, host) != nil) {
 		_ = w.hostScaleDown(ctx, host, opts)
 	}
 
@@ -748,6 +896,9 @@ func (w *worker) reconcileClusterShardsAndHosts(ctx context.Context, cluster *ap
 
 	// Which shard to start concurrent processing with
 	var startShard int
+	// A shard that deferred a host must not stop the shards after it: those are healthy and
+	// still need their config. Remember it and surface it once, at the end of the pass.
+	deferred := false
 	if opts.FullFanOut {
 		// For full fan-out scenarios we'll start shards processing from the very beginning
 		startShard = 0
@@ -758,8 +909,11 @@ func (w *worker) reconcileClusterShardsAndHosts(ctx context.Context, cluster *ap
 		// and for large clusters it is a small price to pay before performing concurrent fan-out.
 		w.a.V(1).Info("starting first shard separately")
 		if err := w.reconcileShardWithHosts(ctx, shards[0]); err != nil {
-			w.a.V(1).Warning("first shard failed, skipping rest of shards due to an error: %v", err)
-			return err
+			if !errors.Is(err, common.ErrCRUDDeferred) {
+				w.a.V(1).Warning("first shard failed, skipping rest of shards due to an error: %v", err)
+				return err
+			}
+			deferred = true
 		}
 
 		// Since shard with 0 index is already done, we'll proceed concurrently starting with the 1-st
@@ -771,10 +925,16 @@ func (w *worker) reconcileClusterShardsAndHosts(ctx context.Context, cluster *ap
 	workersNum := w.getReconcileShardsWorkersNum(cluster, opts)
 	w.a.V(1).Info("Starting rest of shards on workers. Workers num: %d", workersNum)
 	if err := w.runConcurrently(ctx, workersNum, startShard, shards[startShard:]); err != nil {
-		w.a.V(1).Info("Finished with ERROR rest of shards on workers: %d, err: %v", workersNum, err)
-		return err
+		if !errors.Is(err, common.ErrCRUDDeferred) {
+			w.a.V(1).Info("Finished with ERROR rest of shards on workers: %d, err: %v", workersNum, err)
+			return err
+		}
+		deferred = true
 	}
 	w.a.V(1).Info("Finished successfully rest of shards on workers: %d", workersNum)
+	if deferred {
+		return common.ErrCRUDDeferred
+	}
 	return nil
 }
 
@@ -782,9 +942,36 @@ func (w *worker) reconcileShardWithHosts(ctx context.Context, shard api.IShard) 
 	if err := w.reconcileShard(ctx, shard); err != nil {
 		return err
 	}
-	return shard.WalkHostsAbortOnError(func(host *api.Host) error {
-		return w.reconcileHost(ctx, host)
+
+	// Recovery first, then rollout: bring a replica that is already down back up before
+	// touching its healthy peer, so an interrupted roll cannot take the whole shard down
+	// (#1704). The disruption itself is gated in reconcileHostStatefulSet, which is the first
+	// point where the desired StatefulSet - and therefore whether the pod actually rolls - is
+	// known.
+	var recovery, rollout []*api.Host
+	shard.WalkHosts(func(host *api.Host) error {
+		if w.isHostHealthyForReconcile(ctx, host) {
+			rollout = append(rollout, host)
+		} else {
+			recovery = append(recovery, host)
+		}
+		return nil
 	})
+
+	deferred := false
+	for _, host := range append(recovery, rollout...) {
+		if err := w.reconcileHost(ctx, host); err != nil {
+			if !errors.Is(err, common.ErrCRUDDeferred) {
+				return err
+			}
+			// A deferred host is not a failure - keep reconciling the rest of the shard.
+			deferred = true
+		}
+	}
+	if deferred {
+		return common.ErrCRUDDeferred
+	}
+	return nil
 }
 
 // reconcileShard reconciles specified shard, excluding nested replicas
