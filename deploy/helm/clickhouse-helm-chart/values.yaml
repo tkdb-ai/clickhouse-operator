@@ -209,7 +209,8 @@ garage:
     repository: dxflrs/garage
     tag: "v2.4.1"
     pullPolicy: IfNotPresent
-  bucket: clickhouse        # Bucket ClickHouse will read/write from
+  bucket: clickhouse        # Bucket for clickhouse-backup (credentials → garage-backup secret)
+  dataBucket: data          # Bucket for ClickHouse S3 tiered storage (credentials → garage-data secret)
   storagePolicy: s3_main    # ClickHouse storage policy name to create
 
   # -- Replication factor (1 = single-node, no redundancy)
@@ -235,22 +236,10 @@ garage:
 
 # Advanced: Pod Template Extra Configuration
 podTemplate:
-  # S3 disk credentials are injected from the Garage backup secret so the
-  # storage_config.xml's from_env references resolve at clickhouse-server
-  # startup. The secret name is fixed (`garage-backup`) so this block works
-  # for any release name. If you set garage.enabled=false, remove this
-  # extraEnv block (the referenced secret will not exist).
-  extraEnv:
-    - name: S3_ACCESS_KEY_ID
-      valueFrom:
-        secretKeyRef:
-          name: garage-backup
-          key: access-key-id
-    - name: S3_SECRET_ACCESS_KEY
-      valueFrom:
-        secretKeyRef:
-          name: garage-backup
-          key: secret-access-key
+  # S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY are injected automatically by
+  # chi.yaml when garage.enabled=true, using the release-scoped secret
+  # <fullname>-garage-backup. Add extra env vars here if needed.
+  extraEnv: []
   extraVolumeMounts:
     - name: data-volumeclaim-template
       mountPath: /var/lib/clickhouse

@@ -74,10 +74,36 @@ spec:
 
               NS="{{ $namespace }}"
               POD="{{ $fullname }}-garage-0"
-              BUCKET="{{ .Values.garage.bucket }}"
-              KEY_NAME="clickhouse-access"
-              SECRET_NAME="garage-backup"
               CAPACITY="{{ .Values.garage.capacityKiB | default 20971520 | int }}"
+
+              provision_bucket() {
+                local BUCKET="$1" KEY_NAME="$2" SECRET_NAME="$3"
+
+                if kubectl get secret "${SECRET_NAME}" -n "${NS}" > /dev/null 2>&1; then
+                  echo "Secret ${SECRET_NAME} already exists — skipping ${BUCKET}."
+                  return 0
+                fi
+
+                echo "Creating bucket ${BUCKET}..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage bucket create "${BUCKET}" 2>&1 || true
+
+                echo "Creating access key ${KEY_NAME}..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage key create "${KEY_NAME}" 2>&1 || true
+                KEY_INFO=$(kubectl exec -n "${NS}" "${POD}" -- /garage key info "${KEY_NAME}" --show-secret 2>&1)
+                ACCESS_KEY_ID=$(echo "${KEY_INFO}" | grep "^Key ID:" | sed 's/Key ID:  *//')
+                SECRET_KEY=$(echo "${KEY_INFO}" | grep "^Secret key:" | sed 's/Secret key:  *//')
+
+                echo "Granting permissions..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage bucket allow "${BUCKET}" --key "${KEY_NAME}" --read --write
+
+                echo "Storing credentials in secret ${SECRET_NAME}..."
+                kubectl create secret generic "${SECRET_NAME}" \
+                  -n "${NS}" \
+                  --from-literal=access-key-id="${ACCESS_KEY_ID}" \
+                  --from-literal=secret-access-key="${SECRET_KEY}"
+
+                echo "Done: bucket=${BUCKET} key=${ACCESS_KEY_ID} secret=${SECRET_NAME}"
+              }
 
               echo "=== Garage Setup ==="
 
@@ -105,33 +131,10 @@ spec:
                 echo "Layout already applied, skipping."
               fi
 
-              # Skip bucket/key setup if credentials secret already exists
-              if kubectl get secret "${SECRET_NAME}" -n "${NS}" > /dev/null 2>&1; then
-                echo "Secret ${SECRET_NAME} already exists — skipping bucket setup."
-                echo "=== Done ==="
-                exit 0
-              fi
-
-              echo "Creating bucket ${BUCKET}..."
-              kubectl exec -n "${NS}" "${POD}" -- /garage bucket create "${BUCKET}" 2>&1 || true
-
-              echo "Creating access key ${KEY_NAME}..."
-              kubectl exec -n "${NS}" "${POD}" -- /garage key create "${KEY_NAME}" 2>&1 || true
-              KEY_INFO=$(kubectl exec -n "${NS}" "${POD}" -- /garage key info "${KEY_NAME}" --show-secret 2>&1)
-              ACCESS_KEY_ID=$(echo "${KEY_INFO}" | grep "^Key ID:" | sed 's/Key ID:  *//')
-              SECRET_KEY=$(echo "${KEY_INFO}" | grep "^Secret key:" | sed 's/Secret key:  *//')
-
-              echo "Granting permissions..."
-              kubectl exec -n "${NS}" "${POD}" -- /garage bucket allow "${BUCKET}" --key "${KEY_NAME}" --read --write
-
-              echo "Storing credentials in secret ${SECRET_NAME}..."
-              kubectl create secret generic "${SECRET_NAME}" \
-                -n "${NS}" \
-                --from-literal=access-key-id="${ACCESS_KEY_ID}" \
-                --from-literal=secret-access-key="${SECRET_KEY}"
+              provision_bucket "{{ .Values.garage.bucket }}"     "{{ .Values.garage.bucket }}-access"     "{{ $fullname }}-garage-backup"
+              provision_bucket "{{ .Values.garage.dataBucket }}" "{{ .Values.garage.dataBucket }}-access" "{{ $fullname }}-garage-data"
 
               echo "=== Garage setup complete ==="
               echo "S3 endpoint : {{ .Release.Name }}-garage:3900"
-              echo "Bucket      : ${BUCKET}"
-              echo "Access key  : ${ACCESS_KEY_ID}"
+              echo "Buckets     : {{ .Values.garage.bucket }}, {{ .Values.garage.dataBucket }}"
 {{- end }}
