@@ -205,20 +205,26 @@ backup:
 # pick up the credentials at startup.
 garage:
   enabled: true
+  image:
+    repository: dxflrs/garage
+    tag: "v2.4.1"
+    pullPolicy: IfNotPresent
   bucket: clickhouse        # Bucket ClickHouse will read/write from
   storagePolicy: s3_main    # ClickHouse storage policy name to create
 
   # -- Replication factor (1 = single-node, no redundancy)
   replicationFactor: 1
 
-  # -- RPC secret for inter-node communication (32-byte hex string)
-  rpcSecret: "1799bccfd7411eddcf9ebd1e76e6cb37cb572f4ce8c8e7b6ec0ecc4ae9b4a8d1"
+  # -- RPC secret (64-byte hex). Leave empty to auto-generate and store in a Secret.
+  rpcSecret: ""
 
-  # -- Admin API token (required to enable admin endpoints)
-  adminToken: "garage-admin-token-change-me"
+  # -- Admin API token. Leave empty to auto-generate and store in a Secret.
+  adminToken: ""
 
-  # -- Metrics API token (for /metrics endpoint)
-  metricsToken: "garage-metrics-token-change-me"
+  # -- Node storage capacity reported to the cluster layout, in KiB.
+  # Should match (or be slightly less than) persistence.data.size.
+  # 20971520 KiB = 20 GiB
+  capacityKiB: "20971520"
 
   # -- Persistent storage
   persistence:

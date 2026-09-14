@@ -16,18 +16,16 @@ data:
 
     replication_factor = {{ .Values.garage.replicationFactor | default 1 }}
 
-    rpc_bind_addr = "0.0.0.0:3901"
-    rpc_public_addr = "127.0.0.1:3901"
-    rpc_secret = {{ .Values.garage.rpcSecret | default "1799bccfd7411eddcf9ebd1e76e6cb37cb572f4ce8c8e7b6ec0ecc4ae9b4a8d1" | quote }}
+    rpc_bind_addr = "[::]:3901"
+    rpc_secret = "__RPC_SECRET_REPLACE__"
 
     [s3_api]
     s3_region = "garage"
-    api_bind_addr = "0.0.0.0:3900"
+    api_bind_addr = "[::]:3900"
 
     [admin]
-    api_bind_addr = "0.0.0.0:3903"
-    admin_token = {{ .Values.garage.adminToken | default "garage-admin-token-change-me" | quote }}
-    metrics_token = {{ .Values.garage.metricsToken | default "garage-metrics-token-change-me" | quote }}
+    api_bind_addr = "[::]:3903"
+    admin_token = "__ADMIN_TOKEN_REPLACE__"
 ---
 # Garage StatefulSet
 apiVersion: apps/v1
@@ -50,11 +48,36 @@ spec:
         app.kubernetes.io/name: garage
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
+      initContainers:
+        - name: garage-init
+          image: busybox:stable
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - sed "s/__RPC_SECRET_REPLACE__/$RPC_SECRET/;s/__ADMIN_TOKEN_REPLACE__/$ADMIN_TOKEN/" /mnt/garage.toml > /mnt/etc/garage.toml
+          env:
+            - name: RPC_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clickhouse.fullname" . }}-garage-secret
+                  key: rpcSecret
+            - name: ADMIN_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "clickhouse.fullname" . }}-garage-secret
+                  key: adminToken
+          volumeMounts:
+            - name: config
+              mountPath: /mnt/garage.toml
+              subPath: garage.toml
+            - name: etc
+              mountPath: /mnt/etc
       containers:
         - name: garage
-          image: dxflrs/garage:v1.0.1
-          imagePullPolicy: IfNotPresent
-          command: ["/garage", "-c", "/etc/garage/garage.toml", "server"]
+          image: "{{ .Values.garage.image.repository }}:{{ .Values.garage.image.tag }}"
+          imagePullPolicy: {{ .Values.garage.image.pullPolicy }}
+          command: ["/garage", "-c", "/etc/garage.toml", "server"]
           ports:
             - name: s3
               containerPort: 3900
@@ -68,15 +91,16 @@ spec:
               port: 3903
             initialDelaySeconds: 5
             periodSeconds: 5
+            failureThreshold: 6
           livenessProbe:
-            httpGet:
-              path: /health
+            tcpSocket:
               port: 3903
             initialDelaySeconds: 15
             periodSeconds: 30
           volumeMounts:
-            - name: config
-              mountPath: /etc/garage
+            - name: etc
+              mountPath: /etc/garage.toml
+              subPath: garage.toml
             - name: meta
               mountPath: /mnt/meta
             - name: data
@@ -92,6 +116,8 @@ spec:
         - name: config
           configMap:
             name: {{ include "clickhouse.fullname" . }}-garage-config
+        - name: etc
+          emptyDir: {}
   volumeClaimTemplates:
     - metadata:
         name: meta

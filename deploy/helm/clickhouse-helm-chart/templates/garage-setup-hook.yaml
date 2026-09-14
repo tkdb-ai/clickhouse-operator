@@ -2,8 +2,7 @@
 {{- $fullname := include "clickhouse.fullname" . }}
 {{- $namespace := .Release.Namespace }}
 ---
-# RBAC so the setup job can create/patch the credentials secret with the
-# real Garage-generated GK key.
+# These are regular chart resources (not hooks) so they persist across hook runs
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -11,10 +10,6 @@ metadata:
   labels:
     {{- include "clickhouse.labels" . | nindent 4 }}
     app.kubernetes.io/component: garage-setup
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -23,14 +18,16 @@ metadata:
   labels:
     {{- include "clickhouse.labels" . | nindent 4 }}
     app.kubernetes.io/component: garage-setup
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
   - apiGroups: [""]
     resources: ["secrets"]
     verbs: ["get", "create", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+  - apiGroups: [""]
+    resources: ["pods/exec"]
+    verbs: ["create"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -39,10 +36,6 @@ metadata:
   labels:
     {{- include "clickhouse.labels" . | nindent 4 }}
     app.kubernetes.io/component: garage-setup
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -70,19 +63,6 @@ spec:
     spec:
       serviceAccountName: {{ $fullname }}-garage-setup
       restartPolicy: OnFailure
-      initContainers:
-        - name: wait-for-garage
-          image: busybox
-          command:
-            - sh
-            - -c
-            - |
-              echo "Waiting for Garage admin API..."
-              until nc -z {{ .Release.Name }}-garage 3903; do
-                echo "Garage not ready, retrying..."
-                sleep 3
-              done
-              echo "Garage is ready"
       containers:
         - name: setup
           image: alpine/k8s:1.30.0
@@ -92,75 +72,66 @@ spec:
             - |
               set -euo pipefail
 
-              ADMIN="http://{{ .Release.Name }}-garage:3903"
-              TOKEN="{{ .Values.garage.adminToken | default "garage-admin-token-change-me" }}"
-              AUTH="Authorization: Bearer $TOKEN"
-              KEY_NAME="clickhouse-access"
+              NS="{{ $namespace }}"
+              POD="{{ $fullname }}-garage-0"
               BUCKET="{{ .Values.garage.bucket }}"
+              KEY_NAME="clickhouse-access"
               SECRET_NAME="garage-backup"
-              NAMESPACE="{{ $namespace }}"
+              CAPACITY="{{ .Values.garage.capacityKiB | default 20971520 | int }}"
 
               echo "=== Garage Setup ==="
 
-              # 1. Get node ID and current layout version
-              STATUS=$(curl -sfS -H "$AUTH" "$ADMIN/v1/status")
-              NODE_ID=$(echo "$STATUS" | jq -r '.nodes[0].id')
-              LAYOUT_VERSION=$(echo "$STATUS" | jq -r '.layoutVersion')
-              echo "Node ID: $NODE_ID, layout version: $LAYOUT_VERSION"
+              echo "Waiting for Garage..."
+              until kubectl exec -n "${NS}" "${POD}" -- /garage status > /dev/null 2>&1; do
+                echo "Not ready, retrying in 3s..."
+                sleep 3
+              done
+              echo "Garage is ready."
 
-              # 2. Assign + apply layout if not yet configured
-              if [ "$LAYOUT_VERSION" = "0" ]; then
-                echo "Assigning layout..."
-                curl -sfS -X POST -H "$AUTH" -H "Content-Type: application/json" \
-                  "$ADMIN/v1/layout" \
-                  -d "[{\"id\":\"$NODE_ID\",\"zone\":\"dc1\",\"capacity\":1000000000,\"tags\":[]}]" > /dev/null
-                echo "Applying layout v1..."
-                curl -sfS -X POST -H "$AUTH" -H "Content-Type: application/json" \
-                  "$ADMIN/v1/layout/apply" \
-                  -d '{"version":1}' > /dev/null
+              # Parse node ID from status output (first hex field on a data line)
+              NODE_ID=$(kubectl exec -n "${NS}" "${POD}" -- /garage status 2>&1 | awk '/^[0-9a-f]/{print $1; exit}')
+              echo "Node ID: ${NODE_ID}"
+
+              # Assign layout (idempotent — assign always succeeds even if already assigned)
+              kubectl exec -n "${NS}" "${POD}" -- /garage layout assign -z dc1 -c "${CAPACITY}" "${NODE_ID}" 2>&1 || true
+
+              # Apply only if staged changes exist
+              APPLY_VERSION=$(kubectl exec -n "${NS}" "${POD}" -- /garage layout show 2>&1 \
+                | grep "garage layout apply" | awk '{print $NF}' | tr -d '\r')
+              if [ -n "${APPLY_VERSION}" ]; then
+                echo "Applying layout version ${APPLY_VERSION}..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage layout apply --version "${APPLY_VERSION}"
               else
-                echo "Layout already applied (v$LAYOUT_VERSION) — skipping"
+                echo "Layout already applied, skipping."
               fi
 
-              # 3. Ensure bucket exists
-              echo "Ensuring bucket '$BUCKET'..."
-              if ! curl -sfS -H "$AUTH" "$ADMIN/v1/bucket?globalAlias=$BUCKET" > /dev/null 2>&1; then
-                curl -sfS -X POST -H "$AUTH" -H "Content-Type: application/json" \
-                  "$ADMIN/v1/bucket" -d "{\"globalAlias\":\"$BUCKET\"}" > /dev/null
+              # Skip bucket/key setup if credentials secret already exists
+              if kubectl get secret "${SECRET_NAME}" -n "${NS}" > /dev/null 2>&1; then
+                echo "Secret ${SECRET_NAME} already exists — skipping bucket setup."
+                echo "=== Done ==="
+                exit 0
               fi
-              BUCKET_ID=$(curl -sfS -H "$AUTH" "$ADMIN/v1/bucket?globalAlias=$BUCKET" | jq -r '.id')
-              echo "Bucket ID: $BUCKET_ID"
 
-              # 4. Ensure key exists (idempotent by name); read back GK ID + secret
-              echo "Ensuring key '$KEY_NAME'..."
-              KEY_ID=$(curl -sfS -H "$AUTH" "$ADMIN/v1/key?list" | jq -r --arg n "$KEY_NAME" 'first(.[] | select(.name==$n) | .id) // empty')
-              if [ -z "$KEY_ID" ]; then
-                CREATED=$(curl -sfS -X POST -H "$AUTH" -H "Content-Type: application/json" \
-                  "$ADMIN/v1/key" -d "{\"name\":\"$KEY_NAME\"}")
-                KEY_ID=$(echo "$CREATED" | jq -r '.accessKeyId')
-                echo "Created key: $KEY_ID"
-              else
-                echo "Key already exists: $KEY_ID"
-              fi
-              SECRET_KEY=$(curl -sfS -H "$AUTH" "$ADMIN/v1/key?id=$KEY_ID&showSecretKey=true" | jq -r '.secretAccessKey')
+              echo "Creating bucket ${BUCKET}..."
+              kubectl exec -n "${NS}" "${POD}" -- /garage bucket create "${BUCKET}" 2>&1 || true
 
-              # 5. Grant key access to bucket (idempotent)
-              echo "Granting key access to bucket..."
-              curl -sfS -X POST -H "$AUTH" -H "Content-Type: application/json" \
-                "$ADMIN/v1/bucket/allow" \
-                -d "{\"bucketId\":\"$BUCKET_ID\",\"accessKeyId\":\"$KEY_ID\",\"permissions\":{\"read\":true,\"write\":true}}" > /dev/null
+              echo "Creating access key ${KEY_NAME}..."
+              kubectl exec -n "${NS}" "${POD}" -- /garage key create "${KEY_NAME}" 2>&1 || true
+              KEY_INFO=$(kubectl exec -n "${NS}" "${POD}" -- /garage key info "${KEY_NAME}" --show-secret 2>&1)
+              ACCESS_KEY_ID=$(echo "${KEY_INFO}" | grep "^Key ID:" | sed 's/Key ID:  *//')
+              SECRET_KEY=$(echo "${KEY_INFO}" | grep "^Secret key:" | sed 's/Secret key:  *//')
 
-              # 6. Upsert the Kubernetes secret with the real GK key.
-              # The secret is owned by the setup hook (not a chart template),
-              # so its contents survive helm upgrade.
-              echo "Upserting secret '$SECRET_NAME'..."
-              kubectl create secret generic "$SECRET_NAME" -n "$NAMESPACE" \
-                --from-literal=access-key-id="$KEY_ID" \
-                --from-literal=secret-access-key="$SECRET_KEY" \
-                --dry-run=client -o yaml | kubectl apply --validate=false -f -
+              echo "Granting permissions..."
+              kubectl exec -n "${NS}" "${POD}" -- /garage bucket allow "${BUCKET}" --key "${KEY_NAME}" --read --write
+
+              echo "Storing credentials in secret ${SECRET_NAME}..."
+              kubectl create secret generic "${SECRET_NAME}" \
+                -n "${NS}" \
+                --from-literal=access-key-id="${ACCESS_KEY_ID}" \
+                --from-literal=secret-access-key="${SECRET_KEY}"
 
               echo "=== Garage setup complete ==="
               echo "S3 endpoint : {{ .Release.Name }}-garage:3900"
-              echo "Bucket      : $BUCKET"
-              echo "Access key  : $KEY_ID"
+              echo "Bucket      : ${BUCKET}"
+              echo "Access key  : ${ACCESS_KEY_ID}"
 {{- end }}
