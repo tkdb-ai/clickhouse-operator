@@ -1,0 +1,36 @@
+{{- if and .Values.provisioning.enabled .Values.provisioning.buckets }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "garage.fullname" . }}-provisioner
+  labels:
+    {{- include "garage.labels" . | nindent 4 }}
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "create", "patch"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create"]
+- apiGroups: ["deuxfleurs.fr"]
+  resources: ["garagenodes"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "garage.fullname" . }}-provisioner
+  labels:
+    {{- include "garage.labels" . | nindent 4 }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "garage.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "garage.fullname" . }}-provisioner
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}

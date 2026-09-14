@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "garage.fullname" . }}-cleanup
+  labels:
+    {{- include "garage.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "garage.serviceAccountName" . }}
+      containers:
+        - name: cleanup
+          image: bitnami/kubectl:latest
+          command:
+            - kubectl
+            - delete
+            - garagenode
+            - --all
+            - -n
+            - {{ .Release.Namespace }}

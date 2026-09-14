@@ -1,0 +1,89 @@
+{{- if and .Values.provisioning.enabled .Values.provisioning.buckets }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "garage.fullname" . }}-provision
+  labels:
+    {{- include "garage.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "garage.serviceAccountName" . }}
+      containers:
+        - name: provision
+          image: {{ .Values.provisioning.image.repository }}:{{ .Values.provisioning.image.tag }}
+          imagePullPolicy: {{ .Values.provisioning.image.pullPolicy }}
+          env:
+            - name: NS
+              value: {{ .Release.Namespace | quote }}
+            - name: POD
+              value: {{ printf "%s-0" (include "garage.fullname" .) | quote }}
+            - name: ZONE
+              value: {{ .Values.provisioning.zone | quote }}
+            - name: CAPACITY
+              value: {{ .Values.provisioning.capacityKiB | quote }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+
+              echo "Waiting for Garage to be ready..."
+              until kubectl exec -n "${NS}" "${POD}" -- /garage status > /dev/null 2>&1; do
+                echo "Not ready, retrying in 3s..."
+                sleep 3
+              done
+              echo "Garage is ready."
+
+              NODE_ID=$(kubectl exec -n "${NS}" "${POD}" -- /garage status 2>&1 | awk '/^[0-9a-f]/{print $1; exit}')
+              echo "Node ID: ${NODE_ID}"
+
+              # Assign layout (idempotent — assign always, apply only if staged changes exist)
+              kubectl exec -n "${NS}" "${POD}" -- /garage layout assign -z "${ZONE}" -c "${CAPACITY}" "${NODE_ID}" 2>&1 || true
+
+              APPLY_VERSION=$(kubectl exec -n "${NS}" "${POD}" -- /garage layout show 2>&1 \
+                | grep "garage layout apply" | awk '{print $NF}' | tr -d '\r')
+              if [ -n "${APPLY_VERSION}" ]; then
+                echo "Applying layout version ${APPLY_VERSION}..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage layout apply --version "${APPLY_VERSION}"
+              else
+                echo "Layout already applied, skipping."
+              fi
+
+              {{- range .Values.provisioning.buckets }}
+              BUCKET_NAME={{ .name | quote }}
+              KEY_NAME={{ printf "%s-%s" (include "garage.fullname" $) .name | quote }}
+              SECRET_NAME={{ .credentialsSecret | default (printf "%s-%s-credentials" (include "garage.fullname" $) .name) | quote }}
+
+              if kubectl get secret "${SECRET_NAME}" -n "${NS}" > /dev/null 2>&1; then
+                echo "Secret ${SECRET_NAME} already exists, skipping ${BUCKET_NAME}."
+              else
+                echo "Creating bucket ${BUCKET_NAME}..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage bucket create "${BUCKET_NAME}" 2>&1 || true
+
+                echo "Creating access key ${KEY_NAME}..."
+                KEY_OUTPUT=$(kubectl exec -n "${NS}" "${POD}" -- /garage key create "${KEY_NAME}" 2>&1)
+                ACCESS_KEY_ID=$(echo "${KEY_OUTPUT}" | grep "^Key ID:" | sed 's/Key ID:  *//')
+                SECRET_KEY=$(echo "${KEY_OUTPUT}" | grep "^Secret key:" | sed 's/Secret key:  *//')
+
+                echo "Granting permissions..."
+                kubectl exec -n "${NS}" "${POD}" -- /garage bucket allow "${BUCKET_NAME}" --key "${KEY_NAME}" --read --write
+
+                echo "Storing credentials in secret ${SECRET_NAME}..."
+                kubectl create secret generic "${SECRET_NAME}" \
+                  -n "${NS}" \
+                  --from-literal=access_key="${ACCESS_KEY_ID}" \
+                  --from-literal=secret_key="${SECRET_KEY}" \
+                  --from-literal=bucket="${BUCKET_NAME}"
+
+                echo "Done: bucket=${BUCKET_NAME} accessKeyId=${ACCESS_KEY_ID} credentialsSecret=${SECRET_NAME}"
+              fi
+              {{- end }}
+
+              echo "Provisioning complete."
+{{- end }}
