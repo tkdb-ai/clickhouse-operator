@@ -78,7 +78,7 @@ spec:
                   for POD in $PODS; do
                     echo "==> Triggering backup on $POD"
                     kubectl exec -n "$NAMESPACE" "$POD" -c clickhouse-backup \
-                      -- clickhouse-backup create-and-upload \
+                      -- clickhouse-backup create_remote \
                       || { echo "Backup failed on $POD" >&2; ERRORS=$((ERRORS+1)); }
                   done
 

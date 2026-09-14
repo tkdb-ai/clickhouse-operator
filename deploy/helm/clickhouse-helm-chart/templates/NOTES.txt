@@ -46,7 +46,7 @@ Backup REST API (port 7171) is available on each ClickHouse pod.
    Scheduled: {{ .Values.backup.schedule | default "0 2 * * *" }} (CronJob: {{ include "clickhouse.fullname" . }}-backup)
 
    Create and upload a backup:
-   kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup create-and-upload
+   kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup create_remote
 
    List remote backups:
    kubectl exec -n {{ .Release.Namespace }} <pod> -c clickhouse-backup -- clickhouse-backup list remote
