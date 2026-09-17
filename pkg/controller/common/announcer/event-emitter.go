@@ -65,10 +65,29 @@ const (
 	// reconcile was aborted, on observing a recovery signal (e.g. a pod became Ready).
 	EventReasonAutoRecoveryTriggered = "AutoRecoveryTriggered"
 
+	// EventReasonStuckHostRecoveryTriggered fires when the operator re-enqueues a
+	// Completed CHI for reconcile because one of its hosts has been Ready=False for
+	// longer than the configured threshold.
+	EventReasonStuckHostRecoveryTriggered = "StuckHostRecoveryTriggered"
+
+	// EventReasonHostStuckNotReady fires when shouldForceRestartHost decides to force
+	// a host restart because the pod has been Ready=False past the configured threshold.
+	EventReasonHostStuckNotReady = "HostStuckNotReady"
+
 	// EventReasonKeeperUpdateNoEndpointChange fires when the operator observes a referenced
 	// CHK reconcile completing but decides not to trigger a CHI reconcile because the resolved
 	// zookeeper endpoints have not changed.
 	EventReasonKeeperUpdateNoEndpointChange = "KeeperUpdateNoEndpointChange"
+
+	// EventReasonHostReconcileDeferredShardSafety fires when a host's restart or StatefulSet
+	// roll is postponed because its shard has no other healthy replica to serve meanwhile.
+	// The shard keeps serving; the reconcile retries once a peer is back.
+	EventReasonHostReconcileDeferredShardSafety = "HostReconcileDeferredShardSafety"
+
+	// EventReasonHookSkippedUnreachableHost fires when a cluster-scoped reconcile hook does not
+	// run on one of its target hosts because that host's pod cannot serve SQL - during a
+	// scale-up it may not exist yet. The hook still succeeds on the hosts it could reach.
+	EventReasonHookSkippedUnreachableHost = "HookSkippedUnreachableHost"
 )
 
 type EventEmitter struct {
