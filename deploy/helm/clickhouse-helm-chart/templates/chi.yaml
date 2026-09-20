@@ -30,11 +30,15 @@ spec:
     
     users:
       {{- range $user, $config := .Values.users }}
-      {{- if and (eq $user "admin") (not $config.k8s_secret_password) (not $config.password) }}
+      {{- if and (eq $user "admin") (not $config.k8s_secret_password) (not $config.password) (not $config.password_secret_name) }}
       {{ $user }}/k8s_secret_password: {{ printf "%s-admin/admin" (include "clickhouse.fullname" $) | quote }}
       {{- end }}
+      {{- if $config.password_secret_name }}
+      {{ $user }}/k8s_secret_password: {{ printf "%s/password" $config.password_secret_name | quote }}
+      {{- end }}
       {{- range $key, $val := $config }}
-      {{- if kindIs "map" $val }}
+      {{- if eq $key "password_secret_name" }}
+      {{- else if kindIs "map" $val }}
       {{- range $k2, $v2 := $val }}
       {{ $user }}/{{ $key }}/{{ $k2 }}: {{ $v2 | quote }}
       {{- end }}
@@ -138,6 +142,22 @@ spec:
 
     clusters:
       - name: "main"
+        {{- if .Values.clusterSecret.enabled }}
+        {{- if .Values.clusterSecret.secure }}
+        secure: "yes"
+        {{- end }}
+        secret:
+          {{- if .Values.clusterSecret.auto }}
+          auto: "true"
+          {{- else if .Values.clusterSecret.value }}
+          value: {{ .Values.clusterSecret.value | quote }}
+          {{- else if .Values.clusterSecret.valueFrom.secretKeyRef.name }}
+          valueFrom:
+            secretKeyRef:
+              name: {{ .Values.clusterSecret.valueFrom.secretKeyRef.name | quote }}
+              key: {{ .Values.clusterSecret.valueFrom.secretKeyRef.key | quote }}
+          {{- end }}
+        {{- end }}
         layout:
           shardsCount: {{ .Values.layout.shardsCount }}
           replicasCount: {{ .Values.layout.replicasCount }}
@@ -152,11 +172,31 @@ spec:
             prometheus.io/port: {{ .Values.monitoring.prometheus.port | default 9363 | quote }}
             prometheus.io/path: "/metrics"
         {{- end }}
+        {{- if .Values.layout.antiAffinity }}
+        podDistribution:
+          - type: ClickHouseAntiAffinity
+            scope: {{ .Values.layout.antiAffinityScope | default "ClickHouseInstallation" }}
+        {{- end }}
         spec:
+          {{- if or .Values.serviceAccount.create .Values.serviceAccount.name }}
+          serviceAccountName: {{ include "clickhouse.serviceAccountName" . }}
+          {{- end }}
+          {{- if .Values.podSecurityContext }}
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          {{- end }}
+          {{- if .Values.layout.topologySpreadConstraints }}
+          topologySpreadConstraints:
+            {{- toYaml .Values.layout.topologySpreadConstraints | nindent 12 }}
+          {{- end }}
           containers:
             - name: clickhouse
               image: {{ printf "%s:%s" .Values.image.repository (default .Chart.AppVersion .Values.image.tag) }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
+              {{- if .Values.securityContext }}
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              {{- end }}
               {{- if .Values.resources }}
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
@@ -183,6 +223,10 @@ spec:
                     secretKeyRef:
                       name: {{ include "clickhouse.fullname" . }}-admin
                       key: admin
+                {{- if and .Values.initScripts.enabled .Values.initScripts.alwaysRun }}
+                - name: CLICKHOUSE_ALWAYS_RUN_INITDB_SCRIPTS
+                  value: "true"
+                {{- end }}
                 {{- if .Values.garage.enabled }}
                 - name: S3_ACCESS_KEY_ID
                   valueFrom:
@@ -198,9 +242,15 @@ spec:
                 {{- if $podTemplate.extraEnv }}
                 {{- toYaml $podTemplate.extraEnv | nindent 16 }}
                 {{- end }}
-              {{- if $podTemplate.extraVolumeMounts }}
+              {{- if or .Values.initScripts.enabled $podTemplate.extraVolumeMounts }}
               volumeMounts:
+                {{- if .Values.initScripts.enabled }}
+                - name: init-scripts-configmap
+                  mountPath: /docker-entrypoint-initdb.d
+                {{- end }}
+                {{- if $podTemplate.extraVolumeMounts }}
                 {{- toYaml $podTemplate.extraVolumeMounts | nindent 16 }}
+                {{- end }}
               {{- end }}
           {{- if $podTemplate.sidecars }}
           {{- toYaml $podTemplate.sidecars | nindent 12 }}
@@ -276,9 +326,16 @@ spec:
                 - name: data-volumeclaim-template
                   mountPath: /var/lib/clickhouse
           {{- end }}
-          {{- if $podTemplate.extraVolumes }}
+          {{- if or .Values.initScripts.enabled $podTemplate.extraVolumes }}
           volumes:
+            {{- if .Values.initScripts.enabled }}
+            - name: init-scripts-configmap
+              configMap:
+                name: {{ .Values.initScripts.configMapName }}
+            {{- end }}
+            {{- if $podTemplate.extraVolumes }}
             {{- toYaml $podTemplate.extraVolumes | nindent 12 }}
+            {{- end }}
           {{- end }}
 
     volumeClaimTemplates:

@@ -42,6 +42,17 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
+Create the name of the ServiceAccount to use
+*/}}
+{{- define "clickhouse.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "clickhouse.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
 Returns N random hex characters, stable across template re-renders within a release.
 */}}
 {{- define "clickhouse.randHex" -}}

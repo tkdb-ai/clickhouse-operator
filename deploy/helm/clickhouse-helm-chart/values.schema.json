@@ -33,6 +33,50 @@
                     "type": "integer", "minimum": 1, "default": 2,
                     "title": "Replicas",
                     "x-form": { "group": "Topology", "order": 2 }
+                },
+                "antiAffinity": {
+                    "type": "boolean", "default": true,
+                    "title": "Anti-affinity",
+                    "x-form": { "group": "Topology", "order": 3 }
+                },
+                "antiAffinityScope": {
+                    "type": "string", "default": "ClickHouseInstallation",
+                    "enum": ["ClickHouseInstallation", "Cluster", "Shard", "Replica", "Namespace"],
+                    "title": "Anti-affinity scope",
+                    "x-form": { "group": "Topology", "order": 4 }
+                },
+                "topologySpreadConstraints": {
+                    "type": "array",
+                    "items": { "type": "object", "additionalProperties": true }
+                }
+            }
+        },
+
+        "clusterSecret": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "enabled": {
+                    "type": "boolean", "default": false,
+                    "title": "Cluster secret",
+                    "x-form": { "group": "Topology", "order": 5 }
+                },
+                "secure": { "type": "boolean", "default": false },
+                "auto": { "type": "boolean", "default": true },
+                "value": { "type": "string" },
+                "valueFrom": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "secretKeyRef": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "name": { "type": "string" },
+                                "key": { "type": "string", "default": "secret" }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -261,6 +305,28 @@
         },
 
         "podTemplate": { "type": "object", "additionalProperties": true },
-        "serviceTemplate": { "type": "object", "additionalProperties": true }
+        "serviceTemplate": { "type": "object", "additionalProperties": true },
+
+        "serviceAccount": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "create": { "type": "boolean", "default": false },
+                "annotations": { "type": "object", "additionalProperties": true },
+                "name": { "type": "string", "default": "" }
+            }
+        },
+        "podSecurityContext": { "type": "object", "additionalProperties": true },
+        "securityContext": { "type": "object", "additionalProperties": true },
+
+        "initScripts": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+                "enabled": { "type": "boolean", "default": false },
+                "configMapName": { "type": "string", "default": "" },
+                "alwaysRun": { "type": "boolean", "default": true }
+            }
+        }
     }
 }

@@ -12,11 +12,72 @@ layout:
   shardsCount: 1
   replicasCount: 1
 
+  # Spread replica pods across nodes so a single node loss doesn't take out
+  # every replica of a shard. No effect until replicasCount/shardsCount > 1.
+  antiAffinity: true
+  # Scope for the anti-affinity policy: ClickHouseInstallation, Cluster,
+  # Shard, Replica, or Namespace. See Altinity operator docs for podDistribution.
+  antiAffinityScope: ClickHouseInstallation
+  # Raw Kubernetes topologySpreadConstraints for the ClickHouse pod, e.g. to
+  # spread replicas across availability zones:
+  # topologySpreadConstraints:
+  #   - maxSkew: 1
+  #     topologyKey: topology.kubernetes.io/zone
+  #     whenUnsatisfiable: DoNotSchedule
+  topologySpreadConstraints: []
+
+# Cluster secret — encrypts inter-node communication (distributed queries,
+# replication) between cluster replicas. Leave disabled for single-node or
+# trusted-network setups.
+clusterSecret:
+  enabled: false
+  # Require the secret on the SSL/secure port instead of the plain port.
+  secure: false
+  # Auto-generate the secret (recommended). Ignored if value/valueFrom is set.
+  auto: true
+  # Plaintext secret value (not recommended for production; prefer valueFrom).
+  value: ""
+  # Reference an existing Kubernetes secret instead of a literal value.
+  valueFrom:
+    secretKeyRef:
+      name: ""
+      key: "secret"
+
 # ClickHouse Image
 image:
   repository: clickhouse/clickhouse-server
   tag: '25.8'
   pullPolicy: IfNotPresent
+
+# ServiceAccount for the ClickHouse pods
+serviceAccount:
+  # Set to true to create a dedicated ServiceAccount instead of using "default".
+  # Useful when the namespace's default SA is restricted by RBAC/PodSecurity.
+  create: false
+  annotations: {}
+  # If not set and create is true, a name is generated from the fullname template.
+  name: ""
+
+# Pod-level security context (fsGroup so mounted volumes are group-writable
+# by the clickhouse user).
+podSecurityContext:
+  fsGroup: 101
+
+# Container-level security context. 101 is the uid/gid baked into the
+# official clickhouse/clickhouse-server image.
+securityContext:
+  runAsUser: 101
+  runAsGroup: 101
+
+# Init scripts — run SQL/shell scripts on first container startup, mounted
+# from an existing ConfigMap at /docker-entrypoint-initdb.d/ (upstream
+# clickhouse-server image feature; scripts run in filename order).
+initScripts:
+  enabled: false
+  # Name of an existing ConfigMap containing the init scripts.
+  configMapName: ""
+  # Re-run scripts on every container start, not just first boot.
+  alwaysRun: true
 
 # Storage Configuration
 storage:
@@ -65,6 +126,11 @@ settings:
   compression/case/method: zstd
 
 # ClickHouse Users (users.xml)
+# Each user can set either `password` (plaintext, lands in values.yaml/git —
+# fine for throwaway users) or `password_secret_name` (name of an existing
+# Secret with a `password` key — preferred for anything real). `admin` gets
+# a k8s_secret_password pointing at the chart's own generated -admin secret
+# automatically if neither is set.
 adminPassword: '' # Leave empty to generate a random one
 users:
   default:
@@ -76,6 +142,9 @@ users:
     access_management: '1'
   dev-user:
     password: adminpassword
+  # secret-backed-user:
+  #   password_secret_name: my-existing-secret  # must contain a 'password' key
+  #   networks/ip: "0.0.0.0/0"
 
 # Profiles and Quotas
 profiles: {} # default/max_memory_usage: 1000000000
