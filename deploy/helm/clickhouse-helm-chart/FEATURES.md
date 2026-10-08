@@ -378,7 +378,7 @@ For anything the structured values don't cover, `podTemplate` and
 |---|---|
 | `podTemplate.extraEnv` | Extra env vars (used by default to inject Garage S3 creds) |
 | `podTemplate.extraVolumeMounts` / `extraVolumes` | Mount extra storage into ClickHouse |
-| `podTemplate.sidecars` | Add sidecar containers (a busybox disk-usage logger ships by default; `[]` to remove) |
+| `podTemplate.sidecars` | Add sidecar containers (a supercronic `cron-sidecar` ships by default; `[]` to remove) |
 | `serviceTemplate.type` | `ClusterIP` / `NodePort` / `LoadBalancer` for external exposure |
 | `serviceTemplate.annotations` | Service annotations (e.g. cloud LB config) |
 

@@ -1,6 +1,6 @@
 # ClickHouse Installation Helm Chart
 
-Deploys a `ClickHouseInstallation` (CHI) custom resource managed by the [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator). The operator must be installed in the cluster before this chart will work — it is not included here.
+Deploys a `ClickHouseInstallation` (CHI) custom resource managed by the [Altinity ClickHouse Operator](https://github.com/Altinity/clickhouse-operator). The operator must be installed in the cluster before this chart will work. It is not installed by default, but you can have this chart install it by setting `operator.enabled=true` (see below).
 
 ## Prerequisites
 
@@ -26,6 +26,21 @@ Deploys a `ClickHouseInstallation` (CHI) custom resource managed by the [Altinit
 > ```bash
 > kubectl -n <namespace> get chk,sts,pods | grep keeper
 > ```
+
+### Installing the operator with this chart
+
+The Altinity operator is an optional subchart, off by default. To install it
+(and its CRDs) together with the ClickHouse installation:
+
+```bash
+helm dependency update   # once, to fetch the operator subchart
+helm install my-ch . -n clickhouse --create-namespace --set operator.enabled=true
+```
+
+With `operator.watchNamespaces` empty (the default) the operator watches only
+the namespace it is installed in, which satisfies the namespace-scoping
+requirement above. Other operator settings go under the `operator:` key. Leave
+`operator.enabled=false` if an operator is already installed in the cluster.
 
 ## Quick Start
 
@@ -319,9 +334,7 @@ Customise the ClickHouse pod spec. All fields are optional.
 | `podTemplate.extraEnv` | `[]` | Extra environment variables for the ClickHouse container |
 | `podTemplate.extraVolumeMounts` | data PVC at `/var/lib/clickhouse` | Extra volume mounts for the ClickHouse container |
 | `podTemplate.extraVolumes` | `[]` | Extra volumes for the pod |
-| `podTemplate.sidecars` | busybox disk-checker | Additional sidecar containers |
-
-The default sidecar logs disk usage of `/var/lib/clickhouse` every 60 seconds. To disable it, set `podTemplate.sidecars: []`.
+| `podTemplate.sidecars` | `cron-sidecar` (supercronic) | Additional sidecar containers |
 
 ---
 

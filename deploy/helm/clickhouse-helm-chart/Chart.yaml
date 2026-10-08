@@ -4,3 +4,10 @@ description: A Helm chart for Altinity ClickHouse Operator ClickHouseInstallatio
 type: application
 version: 0.1.0
 appVersion: "25.8"
+
+dependencies:
+  - name: altinity-clickhouse-operator
+    repository: https://helm.altinity.com
+    version: 0.27.3
+    alias: operator
+    condition: operator.enabled

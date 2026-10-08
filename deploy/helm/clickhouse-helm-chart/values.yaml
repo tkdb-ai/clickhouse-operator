@@ -7,10 +7,20 @@ global:
 nameOverride: ''
 fullnameOverride: ''
 
+# Altinity ClickHouse Operator (optional subchart)
+# Set enabled: true to install the operator (and its CRDs) alongside this chart.
+# Leave false if an operator is already installed in the cluster -- two
+# operators fighting over the same CRDs/resources will conflict.
+# Anything under this key is passed to the altinity-clickhouse-operator chart
+# (e.g. operator.watchNamespaces). With watchNamespaces empty the operator
+# watches only its own namespace, i.e. the namespace you install this chart in.
+operator:
+  enabled: false
+
 # Cluster Layout
 layout:
   shardsCount: 1
-  replicasCount: 1
+  replicasCount: 2
 
   # Spread replica pods across nodes so a single node loss doesn't take out
   # every replica of a shard. No effect until replicasCount/shardsCount > 1.
@@ -314,21 +324,32 @@ podTemplate:
       mountPath: /var/lib/clickhouse
   # extraVolumes: []
   sidecars:
-    - name: clickhouse-data-checker
-      image: busybox:1.35
+    # Persistent cron sidecar (supercronic). Runs as the container's main process,
+    # logs job output to stdout (kubectl logs <pod> -c cron-sidecar).
+    # Build the image from ../clickhouse-cron/Dockerfile (supercronic + your
+    # tools/scripts) and push it to your own registry before deploying.
+    # NOTE: every replica runs its own copy, so keep jobs idempotent.
+    - name: cron-sidecar
+      image: clickhouse-cron:latest   
       imagePullPolicy: IfNotPresent
       command:
         - sh
         - '-c'
         - |
-          while true; do
-            du -sh /var/lib/clickhouse || true
-            sleep 60
-          done
+          cat > /tmp/crontab <<'EOF'
+          */15 * * * * flock -n /tmp/task.lock /opt/scripts/task.sh
+          EOF
+          exec /usr/local/bin/supercronic /tmp/crontab
+      resources:
+        requests:
+          cpu: 10m
+          memory: 32Mi
+        limits:
+          cpu: 100m
+          memory: 64Mi
       volumeMounts:
         - name: data-volumeclaim-template
           mountPath: /var/lib/clickhouse
-          readOnly: true
   # sidecars: []
 
   # Advanced: Service Template
