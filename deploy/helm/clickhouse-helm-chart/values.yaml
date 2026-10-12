@@ -139,8 +139,9 @@ settings:
 # Each user can set either `password` (plaintext, lands in values.yaml/git —
 # fine for throwaway users) or `password_secret_name` (name of an existing
 # Secret with a `password` key — preferred for anything real). `admin` gets
-# a k8s_secret_password pointing at the chart's own generated -admin secret
-# automatically if neither is set.
+# a password valueFrom/secretKeyRef pointing at the chart's own generated
+# -admin secret automatically if neither is set. (The old k8s_secret_password
+# syntax was removed in operator 0.27.4 and is rejected by this chart.)
 adminPassword: '' # Leave empty to generate a random one
 users:
   default:

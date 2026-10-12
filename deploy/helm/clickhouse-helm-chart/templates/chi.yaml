@@ -30,14 +30,28 @@ spec:
     
     users:
       {{- range $user, $config := .Values.users }}
-      {{- if and (eq $user "admin") (not $config.k8s_secret_password) (not $config.password) (not $config.password_secret_name) }}
-      {{ $user }}/k8s_secret_password: {{ printf "%s-admin/admin" (include "clickhouse.fullname" $) | quote }}
+      {{- /* operator >= 0.27.4 rejects the k8s_secret_* syntax (RemovedSecretRefSyntax); use valueFrom/secretKeyRef */}}
+      {{- range $key, $val := $config }}
+      {{- if hasPrefix "k8s_secret_" $key }}
+      {{- fail (printf "users.%s.%s: the k8s_secret_* syntax was removed in operator 0.27.4; set password_secret_name (Secret with a `password` key) instead" $user $key) }}
+      {{- end }}
+      {{- end }}
+      {{- if and (eq $user "admin") (not $config.password) (not $config.password_secret_name) }}
+      {{ $user }}/password:
+        valueFrom:
+          secretKeyRef:
+            name: {{ printf "%s-admin" (include "clickhouse.fullname" $) | quote }}
+            key: admin
       {{- end }}
       {{- if $config.password_secret_name }}
-      {{ $user }}/k8s_secret_password: {{ printf "%s/password" $config.password_secret_name | quote }}
+      {{ $user }}/password:
+        valueFrom:
+          secretKeyRef:
+            name: {{ $config.password_secret_name | quote }}
+            key: password
       {{- end }}
       {{- range $key, $val := $config }}
-      {{- if eq $key "password_secret_name" }}
+      {{- if or (eq $key "password_secret_name") (and (eq $key "password") $config.password_secret_name) }}
       {{- else if kindIs "map" $val }}
       {{- range $k2, $v2 := $val }}
       {{ $user }}/{{ $key }}/{{ $k2 }}: {{ $v2 | quote }}

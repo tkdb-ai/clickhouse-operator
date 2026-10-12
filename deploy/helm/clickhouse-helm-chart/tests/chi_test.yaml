@@ -148,3 +148,41 @@ tests:
       - equal:
           path: metadata.name
           value: my-clickhouse
+
+  - it: admin password uses valueFrom secretKeyRef to the generated admin secret
+    set:
+      fullnameOverride: my-ch
+    asserts:
+      - equal:
+          path: spec.configuration.users["admin/password"].valueFrom.secretKeyRef.name
+          value: my-ch-admin
+      - equal:
+          path: spec.configuration.users["admin/password"].valueFrom.secretKeyRef.key
+          value: admin
+      - notExists:
+          path: spec.configuration.users["admin/k8s_secret_password"]
+
+  - it: password_secret_name renders valueFrom secretKeyRef and drops plaintext password
+    set:
+      users.default.password_secret_name: my-secret
+      users.default.password: ignored
+    asserts:
+      - equal:
+          path: spec.configuration.users["default/password"].valueFrom.secretKeyRef.name
+          value: my-secret
+      - equal:
+          path: spec.configuration.users["default/password"].valueFrom.secretKeyRef.key
+          value: password
+
+  - it: plaintext password is passed through unchanged
+    asserts:
+      - equal:
+          path: spec.configuration.users["dev-user/password"]
+          value: adminpassword
+
+  - it: rejects removed k8s_secret_* user syntax
+    set:
+      users.foo.k8s_secret_password: a/b
+    asserts:
+      - failedTemplate:
+          errorPattern: "k8s_secret_\\* syntax was removed"
