@@ -123,7 +123,7 @@ spec:
 
               # Apply only if staged changes exist
               APPLY_VERSION=$(kubectl exec -n "${NS}" "${POD}" -- /garage layout show 2>&1 \
-                | grep "garage layout apply" | awk '{print $NF}' | tr -d '\r')
+                | { grep "garage layout apply" || true; } | awk '{print $NF}' | tr -d '\r')
               if [ -n "${APPLY_VERSION}" ]; then
                 echo "Applying layout version ${APPLY_VERSION}..."
                 kubectl exec -n "${NS}" "${POD}" -- /garage layout apply --version "${APPLY_VERSION}"
