@@ -1,0 +1,15 @@
+# A long-running client pod. Queries go through the CHI Service
+# (clickhouse-demo), so they keep working while individual pods restart.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ch-client
+  labels:
+    app: ch-client
+spec:
+  containers:
+    - name: client
+      image: "clickhouse/clickhouse-server:24.8"
+      command: ["sleep", "infinity"]
+      resources:
+        requests: {cpu: "50m", memory: "64Mi"}
