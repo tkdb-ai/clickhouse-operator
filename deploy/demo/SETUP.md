@@ -34,7 +34,7 @@ three zones, and `kubectl get sc` shows `local-path (default)`.
 
 The demo treats the Altinity operator as platform: installed once, on its own,
 before any database. Install it from this repo's chart
-(`deploy/helm/clickhouse-operator`, 0.27.3), watching only `ch-demo`:
+(`deploy/helm/clickhouse-operator`, 0.27.4), watching only `ch-demo`:
 
 ```bash
 make operator
@@ -54,8 +54,8 @@ kube-system it watches everything, and then the Keeper never comes up (see
 Optionally preload its images too, so a later restart never pulls on venue Wi-Fi:
 
 ```bash
-minikube image load altinity/clickhouse-operator:0.27.3 -p ch-demo
-minikube image load altinity/metrics-exporter:0.27.3 -p ch-demo
+minikube image load altinity/clickhouse-operator:0.27.4 -p ch-demo
+minikube image load altinity/metrics-exporter:0.27.4 -p ch-demo
 ```
 
 Check:

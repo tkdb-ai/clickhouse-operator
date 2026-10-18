@@ -4,7 +4,7 @@ A laptop-sized, reproducible demo of a sharded, replicated ClickHouse cluster on
 a local 3-node `minikube` cluster, deployed with this repo's chart
 [`deploy/helm/clickhouse-helm-chart`](../helm/clickhouse-helm-chart) on top of the
 Altinity operator from [`deploy/helm/clickhouse-operator`](../helm/clickhouse-operator)
-(0.27.3), which is installed once, on its own.
+(0.27.4), which is installed once, on its own.
 The whole database is one file, [`helm/values.yaml`](helm/values.yaml). Every
 step on stage is a `helm upgrade` that changes one value; Helm records it as a
 numbered release, and the operator reconciles the cluster to match.
