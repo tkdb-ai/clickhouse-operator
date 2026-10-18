@@ -19,8 +19,10 @@ Deploys a `ClickHouseInstallation` (CHI) custom resource managed by the [Altinit
 > ```bash
 > helm upgrade --install clickhouse-operator \
 >   clickhouse-operator/altinity-clickhouse-operator -n clickhouse-operator \
->   --set operator.watchNamespaces="{clickhouse-db}"
+>   --set 'watchNamespaces={clickhouse-db}'
 > ```
+> (`watchNamespaces` is a top-level value of the operator chart. When the operator
+> is installed through this chart as a subchart, it is `operator.watchNamespaces`.)
 > (Or set the `WATCH_NAMESPACES` env var on the operator Deployment to the namespace
 > where this chart is installed.) Verify the Keeper came up:
 > ```bash
@@ -78,6 +80,9 @@ kubectl get secret my-ch-clickhouse-installation-admin -n clickstack \
 |---|---|---|
 | `layout.shardsCount` | `1` | Number of shards |
 | `layout.replicasCount` | `2` | Number of replicas per shard |
+| `layout.antiAffinity` | `true` | Keep replica pods on different nodes. No effect until there is more than one pod |
+| `layout.antiAffinityScope` | `ClickHouseInstallation` | Pods inside this scope never share a node: `ClickHouseInstallation`, `Cluster`, `Shard`, `Replica` or `Namespace`. The default needs one node per ClickHouse pod; use `Shard` to fit `shardsCount x replicasCount` pods on fewer nodes |
+| `layout.topologySpreadConstraints` | `[]` | Raw Kubernetes `topologySpreadConstraints` for the ClickHouse pod, e.g. to spread across zones |
 
 Replication requires a coordination service (`coordination.mode: keeper` or `zookeeper`). For a single standalone node, set `replicasCount: 1` and `coordination.mode: none`.
 
@@ -88,7 +93,7 @@ Replication requires a coordination service (`coordination.mode: keeper` or `zoo
 | Value | Default | Description |
 |---|---|---|
 | `image.repository` | `clickhouse/clickhouse-server` | Container image |
-| `image.tag` | `"24.8"` | Image tag (falls back to `appVersion` if unset) |
+| `image.tag` | `"25.8"` | Image tag (falls back to `appVersion` if unset) |
 | `image.pullPolicy` | `IfNotPresent` | Image pull policy |
 
 ---
@@ -123,7 +128,7 @@ Deploys a `ClickHouseKeeperInstallation` (CHK) managed by the same operator — 
 |---|---|---|
 | `coordination.keeper.replicasCount` | `1` | Number of Keeper replicas. Use `3` for production HA (must be odd) |
 | `coordination.keeper.image.repository` | `clickhouse/clickhouse-keeper` | Keeper image |
-| `coordination.keeper.image.tag` | `"24.8"` | Keeper image tag |
+| `coordination.keeper.image.tag` | `"25.8"` | Keeper image tag |
 | `coordination.keeper.image.pullPolicy` | `IfNotPresent` | Pull policy |
 | `coordination.keeper.storage.size` | `10Gi` | Keeper data PVC size |
 | `coordination.keeper.storage.storageClassName` | `''` | Storage class — blank uses the cluster default |
@@ -154,6 +159,7 @@ Disables coordination entirely. Only suitable for single-node deployments with n
 | `users.default.password` | `"password"` | Password for the `default` user |
 | `users.default.networks/ip` | `"0.0.0.0/0"` | Allowed source IPs for the `default` user |
 | `users.admin.profile` | `default` | Profile assigned to the `admin` user |
+| `users.dev-user.password` | `"adminpassword"` | Plaintext-password example user. Set `dev-user: null` to remove it |
 
 The `admin` password is stored in a Kubernetes Secret named `<release>-clickhouse-installation-admin`. Helm's `lookup` function preserves the existing secret on `helm upgrade`, so the password never rotates unexpectedly.
 
@@ -204,7 +210,7 @@ files:
 
 | Value | Default | Description |
 |---|---|---|
-| `resources` | `{}` | CPU/memory limits and requests for the ClickHouse container |
+| `resources` | limits `1000m` / `4Gi`, requests `500m` / `1Gi` | CPU/memory limits and requests for the ClickHouse container |
 
 ```yaml
 resources:
@@ -253,7 +259,7 @@ kubectl port-forward -n clickstack svc/grafana 3000:80
 
 Deploys [clickhouse-backup](https://github.com/Altinity/clickhouse-backup) as a sidecar alongside each ClickHouse pod. Exposes a REST API on port 7171 for triggering and managing backups. Uses the `admin` user credentials automatically.
 
-When `garage.enabled=true`, the backup sidecar reads S3 credentials directly from the `garage-backup` secret and the S3 endpoint is set automatically to `http://<release>-garage:3900` — no manual credential configuration is needed. A Kubernetes CronJob (`<release>-backup`) runs backups on the configured schedule.
+When `garage.enabled=true`, the backup sidecar reads S3 credentials directly from the `<fullname>-garage-backup` secret and the S3 endpoint is set automatically to `http://<release>-garage:3900` — no manual credential configuration is needed. A Kubernetes CronJob (`<release>-backup`) runs backups on the configured schedule.
 
 | Value | Default | Description |
 |---|---|---|
@@ -297,13 +303,14 @@ Deploys [Garage](https://garagehq.deuxfleurs.fr/) as an S3-compatible object sto
 | `garage.bucket` | `clickhouse` | Bucket ClickHouse reads/writes from (auto-created by setup hook) |
 | `garage.storagePolicy` | `s3_main` | ClickHouse storage policy name |
 | `garage.replicationFactor` | `1` | Replication factor (1 = single-node, no redundancy) |
-| `garage.rpcSecret` | (default hex) | 32-byte hex string for inter-node RPC |
-| `garage.adminToken` | `"garage-admin-token-change-me"` | Token for admin API (required) |
-| `garage.metricsToken` | `"garage-metrics-token-change-me"` | Token for `/metrics` endpoint |
+| `garage.rpcSecret` | `""` | Hex string for inter-node RPC. Empty = generated once and kept in the `<fullname>-garage-secret` Secret |
+| `garage.dataBucket` | `data` | Bucket for ClickHouse S3 tiered storage (credentials in `<fullname>-garage-data`) |
+| `garage.adminToken` | `""` | Admin API token. Empty = generated once and kept in the `<fullname>-garage-secret` Secret |
+| `garage.capacityKiB` | `"20971520"` | Node capacity reported to the Garage layout, in KiB. Keep at or below `garage.persistence.data.size` |
 | `garage.persistence.meta.size` | `256Mi` | Metadata volume size |
 | `garage.persistence.data.size` | `20Gi` | Data volume size |
 
-The Garage S3 API is reachable in-cluster at `http://<release>-garage:3900`. A post-install hook configures the cluster layout, creates the bucket, generates an access key (Garage requires its own `GK<24-hex>` ID format, so the key is not user-specified), and writes credentials to a Secret named `garage-backup` in the release namespace. The chart's default `podTemplate.extraEnv` injects those credentials into the ClickHouse container as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`; the storage_config.xml references them via `from_env`.
+The Garage S3 API is reachable in-cluster at `http://<release>-garage:3900`. A post-install hook configures the cluster layout, creates the bucket, generates an access key (Garage requires its own `GK<24-hex>` ID format, so the key is not user-specified), and writes credentials to Secrets named `<fullname>-garage-backup` (backups) and `<fullname>-garage-data` (ClickHouse S3 disk) in the release namespace. The chart's default `podTemplate.extraEnv` injects those credentials into the ClickHouse container as `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY`; the storage_config.xml references them via `from_env`.
 
 When `backup.enabled=true` and `garage.enabled=true`, the backup sidecar automatically uses Garage as the S3 backend — no additional configuration required.
 
@@ -322,6 +329,44 @@ When `backup.enabled=true` and `garage.enabled=true`, the backup sidecar automat
 | `ch-ui.clickhouse.existingSecret` | `''` | Secret holding the password — blank uses this release's admin secret |
 | `ch-ui.clickhouse.secretKey` | `admin` | Key within the secret |
 | `ch-ui.clickhouse.useAdvanced` | `true` | Enable advanced/admin features in the UI |
+
+---
+
+### Cluster Secret
+
+Encrypts and authenticates traffic between replicas (distributed queries, replication).
+
+| Value | Default | Description |
+|---|---|---|
+| `clusterSecret.enabled` | `false` | Enable the inter-node cluster secret |
+| `clusterSecret.secure` | `false` | Require the secret on the secure port instead of the plain port |
+| `clusterSecret.auto` | `true` | Let the operator generate the secret. Ignored if `value` or `valueFrom` is set |
+| `clusterSecret.value` | `""` | Plaintext secret (not for production) |
+| `clusterSecret.valueFrom.secretKeyRef` | `{name: "", key: secret}` | Existing Secret to read the value from |
+
+---
+
+### Named Collections
+
+| Value | Default | Description |
+|---|---|---|
+| `namedCollections` | `user_labels_source` (`localhost:9000`, `db.user_labels`) | Reusable connection definitions rendered into `named_collections.xml`. The password is always the admin user's. Set to `null` to remove the default (`{}` is merged with it, not a replacement) |
+
+---
+
+### Security, Probes and Init Scripts
+
+| Value | Default | Description |
+|---|---|---|
+| `serviceAccount.create` | `false` | Create a dedicated ServiceAccount instead of using `default` |
+| `serviceAccount.annotations` / `.name` | `{}` / `""` | Annotations and name; the name is generated if empty |
+| `podSecurityContext.fsGroup` | `101` | Makes mounted volumes group-writable by the `clickhouse` user |
+| `securityContext.runAsUser` / `.runAsGroup` | `101` | uid/gid of the official image |
+| `livenessProbe` | `initialDelaySeconds: 60`, `periodSeconds: 10`, `timeoutSeconds: 10` | Liveness probe timing |
+| `readinessProbe` | `initialDelaySeconds: 20`, `periodSeconds: 10`, `timeoutSeconds: 10` | Readiness probe timing |
+| `initScripts.enabled` | `false` | Mount an existing ConfigMap at `/docker-entrypoint-initdb.d/` |
+| `initScripts.configMapName` | `""` | ConfigMap holding the scripts |
+| `initScripts.alwaysRun` | `true` | Re-run the scripts on every container start, not just first boot |
 
 ---
 
@@ -344,6 +389,20 @@ Customise the ClickHouse pod spec. All fields are optional.
 |---|---|---|
 | `serviceTemplate.type` | `ClusterIP` | Kubernetes service type (`ClusterIP`, `NodePort`, `LoadBalancer`) |
 | `serviceTemplate.annotations` | `{}` | Annotations for the service |
+
+---
+
+### Ingress
+
+Exposes the HTTP interface (port 8123) through an ingress controller. For the native protocol (port 9000) use `serviceTemplate.type: LoadBalancer` instead.
+
+| Value | Default | Description |
+|---|---|---|
+| `ingress.enabled` | `false` | Create an Ingress |
+| `ingress.className` | `""` | Ingress class, e.g. `nginx` or `traefik` |
+| `ingress.host` | `clickhouse.example.com` | Hostname |
+| `ingress.annotations` | `{}` | Ingress annotations (e.g. cert-manager) |
+| `ingress.tls` | `[]` | TLS entries |
 
 ---
 

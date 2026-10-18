@@ -1,53 +1,33 @@
-# Demo values for this repo's chart deploy/helm/clickhouse-helm-chart
-# ("clickhouse-installation" 0.1.0). The operator is installed first, on its own
-# (deploy/helm/clickhouse-operator, see SETUP.md).
+# Demo values for deploy/helm/clickhouse-helm-chart. Only what differs from the
+# chart defaults is listed; see SETUP.md for the why behind each choice.
 #
 #   helm upgrade --install demo ../helm/clickhouse-helm-chart -n ch-demo -f helm/values.yaml
 #
-# This one file is the whole database: 3-node Keeper, 2 shards x 2 replicas on
-# clickhouse-server 24.8, users, settings and disks. Every demo step is a
-# `helm upgrade` that changes one value here.
-
-# CHI "demo", CHK "demo-keeper" (Keeper Service "keeper-demo-keeper"),
-# client Service "clickhouse-demo", pods chi-demo-main-<shard>-<replica>-0.
-# This chart always names the ClickHouse cluster "main" (ON CLUSTER main).
+# CHI "demo", CHK "demo-keeper", client Service "clickhouse-demo", cluster "main".
 fullnameOverride: demo
 
-# The Altinity operator is installed separately (its own release) before this
-# chart. It must watch ch-demo: this chart's README says the Keeper (CHK) never
-# reconciles when the operator runs cluster-wide. 02-helm-install.sh checks for it.
 operator:
-  enabled: false
+  enabled: false         # installed separately, watching ch-demo (see SETUP.md)
 
+# --- Knobs the demo steps change ----------------------------------------------
 image:
-  repository: clickhouse/clickhouse-server
   tag: "24.8"            # rolling-upgrade step goes to 25.3
-  pullPolicy: IfNotPresent
 
 layout:
-  shardsCount: 2         # the two numbers the scale step changes
-  replicasCount: 2
-  # The chart default (scope ClickHouseInstallation) is a REQUIRED rule of one
-  # ClickHouse pod per node: 4 pods on 3 minikube nodes leaves one Pending.
-  # Scope Shard keeps the two replicas of each shard on different nodes instead.
-  antiAffinity: true
-  antiAffinityScope: Shard
-  # Spread pods across the zone labels 01-cluster-up.sh puts on the nodes.
-  # This chart adds no app.kubernetes.io labels to ClickHouse pods, so select
-  # on the operator's own label.
-  topologySpreadConstraints:
-    - maxSkew: 1
-      topologyKey: topology.kubernetes.io/zone
-      whenUnsatisfiable: ScheduleAnyway
-      labelSelector:
-        matchLabels:
-          clickhouse.altinity.com/chi: demo
+  shardsCount: 2         # scale step
+  replicasCount: 2       # scale step
+  antiAffinityScope: Shard   # default scope leaves one of 4 pods Pending on 3 nodes
 
+# Flat "<profile>/<setting>" keys. Quote big numbers (Helm renders 1e+09).
+profiles:
+  default/max_threads: "4"
+  default/max_memory_usage: "1000000000"   # live-config step changes this
+
+# --- Static setup --------------------------------------------------------------
 clusterSecret:
   enabled: true
-  auto: true
 
-# Users render as "<user>/<key>: <value>"; values must be scalars (one network each).
+# Users render as "<user>/<key>: <value>"; values must be scalars.
 users:
   default:               # local to each pod, used by ch_pod in the scripts
     password: ""
@@ -57,20 +37,10 @@ users:
     networks/ip: "0.0.0.0/0"
     profile: default
     access_management: "1"
-  dev-user: null         # chart default user with a plaintext password; not needed
+  dev-user: null         # drop the chart's plaintext-password user
 
-# Flat "<profile>/<setting>" keys: the chart copies this map into the CHI as is.
-# Quote big numbers (Helm would render 1e+09).
-profiles:
-  default/max_threads: "4"
-  default/max_memory_usage: "1000000000"
-
-# monitoring.enabled (chart default) already writes prometheus.xml on :9363.
 settings:
-  compression/case/method: zstd
   logger/level: information
-
-namedCollections: null   # null, not {} (Helm merges {} with the default); chart default points at a db.user_labels table the demo doesn't have
 
 storage:
   data:
@@ -85,11 +55,9 @@ resources:
     memory: 2Gi
 
 coordination:
-  mode: keeper
   keeper:
     replicasCount: 3     # odd, never changed after install
     image:
-      repository: clickhouse/clickhouse-keeper
       tag: "24.8"
     storage:
       size: 1Gi
@@ -101,16 +69,14 @@ coordination:
         cpu: 500m
         memory: 512Mi
 
-# Chart add-ons that are on by default but would break or slow the demo:
-# cron-sidecar needs a locally built clickhouse-cron:latest image (ImagePullBackOff
-# on minikube), Garage + backup add an S3 server, a post-install hook and a
-# sidecar per pod, and CH-UI pulls ghcr.io/...:latest.
+# --- Chart add-ons that are on by default but would break or slow the demo ----
+namedCollections: null   # null, not {} (Helm merges {}); default needs a db.user_labels table
 podTemplate:
-  sidecars: []
-  extraVolumeMounts: []  # the operator mounts the data PVC at /var/lib/clickhouse itself
+  sidecars: []           # default cron-sidecar image isn't pullable on minikube
+  extraVolumeMounts: []  # the operator mounts the data PVC itself
 garage:
   enabled: false
 backup:
-  enabled: false
+  enabled: true
 ch-ui:
   enabled: false

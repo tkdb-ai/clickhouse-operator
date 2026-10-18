@@ -1,0 +1,145 @@
+# Demo overrides for deploy/helm/clickhouse-helm-chart.
+# Only values that differ from the chart defaults are listed; see SETUP.md for
+# the reasoning behind each choice.
+#
+#   helm upgrade --install demo ../helm/clickhouse-helm-chart -n ch-demo -f values-demo.yaml
+#
+# Resulting object names:
+#   ClickHouseInstallation (CHI)   demo
+#   ClickHouseKeeperInstallation   demo-keeper
+#   client Service                 clickhouse-demo
+#   cluster                        main
+#
+# Comments marked "DEMO:" are speaker notes: what to say, what the audience
+# should see, and what to avoid. The matching on-stage order is in RUNSHEET.md.
+fullnameOverride: demo
+# DEMO: this one value prefixes every object name, so `kubectl get` output stays
+# short and readable on a projector (demo-..., not a long release-chart name).
+
+
+# --- Values the demo steps change at runtime ------------------------------------
+# Each of these is overridden with `--set` by one of the numbered scripts, so
+# the values below are the "before" state.
+image:
+  tag: "24.8"            # rolling-upgrade step moves this to 25.3
+  # DEMO: step 07 (`make upgrade`). Changing the tag is the whole upgrade. The
+  # operator restarts one host at a time while the right-hand pane keeps
+  # answering. A FAIL or two in that pane is expected if a query was in flight
+  # on the restarting pod; say so, and mention clients retry.
+
+layout:
+  shardsCount: 1         # scale step adds shards
+  replicasCount: 2       # scale step adds replicas
+  # DEMO: step 04 (`make scale-shards` / `make scale-replicas`). Message: "one
+  # value, one helm upgrade". The operator creates the pods and volumes, updates
+  # the cluster definition, and copies the schema to new hosts.
+  # Warning: a new shard starts EMPTY. Kubernetes adds capacity, but placing
+  # data is still a database decision (rebalance with INSERT ... SELECT or a
+  # higher shard weight). Do not claim ClickHouse rebalances on its own.
+  # RUNSHEET.md assumes the demo starts at 2 shards x 2 replicas
+  # (helm/values.yaml). This file starts at 1 x 2, so scaling to 3 shards will
+  # not match the script narration. Check which file you are installing.
+  #
+  # Default scope keeps pods of the whole installation on separate nodes, which
+  # leaves some pods Pending on a 3-node cluster once the demo scales up.
+  # Shard scope only separates replicas of the same shard.
+  antiAffinityScope: Shard
+  # DEMO: if pods sit in Pending, this is the lever. `kubectl describe pod`
+  # shows the scheduler's anti-affinity message, which makes a good teaching
+  # moment. Docker also needs about 10 GB of memory for `make scale-replicas`.
+
+# Rendered into the CHI as <profile>/<setting> keys (flat, not nested).
+# Quote large numbers, otherwise Helm renders 1000000000 as 1e+09.
+profiles:
+  default/max_threads: "4"                  # cap threads to suit small minikube nodes
+  default/max_memory_usage: "1000000000"    # ~1 GB; 05-live-config.sh changes it, 06-rollback.sh reverts it
+  # DEMO: steps 05 and 06 (`make config`, `make rollback`). Message: "change a
+  # setting across the fleet with zero restarts". Point at the RESTARTS column,
+  # which stays unchanged, while the value flips on every pod. Kubernetes takes
+  # a short while to project the new config into pods, so the scripts wait for
+  # all pods to agree before printing. Also show `helm history demo -n ch-demo`:
+  # every change, including the rollback, is a new release revision.
+  # max_threads is not touched by any step; it is there only to keep queries
+  # light on a laptop.
+
+# --- Static setup (unchanged during the demo) -----------------------------------
+# Encrypts traffic between replicas (distributed queries and replication).
+clusterSecret:
+  enabled: true
+  # DEMO: optional talking point only. In production, inter-node traffic should
+  # be authenticated; here the operator generates the secret automatically.
+
+# Rendered as <user>/<key>: <value>, so every value must be a scalar.
+users:
+  default:               # reachable only from inside each pod; the scripts use it through ch_pod
+    password: ""
+    networks/ip: "127.0.0.1/32"
+  demo:                  # network user for the demo; password is "demo"
+    password_sha256_hex: 2a97516c354b68848cdbd8f54a226a0a55b21ed138e207ad6c5cbb9c00aa5aea
+    networks/ip: "0.0.0.0/0"
+    profile: default
+    access_management: "1"  # lets this user run SQL-driven user and grant management
+  dev-user: null         # null removes the chart's default user, which has a plaintext password
+  # DEMO: if asked about security, say the passwordless `default` user only
+  # accepts connections from localhost inside the pod, and `demo` stores a
+  # SHA-256 hash, not the password. The 0.0.0.0/0 network on `demo` is a demo
+  # shortcut; do not present it as a production setting.
+
+settings:
+  logger/level: information
+  # DEMO: normal log verbosity. Raise to `trace` only when debugging a failing
+  # step; it floods the output and slows the pods.
+
+storage:
+  data:
+    size: 4Gi            # small PVC per replica; local-path provisioner on minikube
+    # DEMO: this is why `make chaos` (step 08) works. Deleting a pod brings back
+    # the same PVC and the same row count. If PVCs stay Pending, check
+    # `kubectl get sc` shows `local-path (default)`.
+
+# Per ClickHouse pod. The generous memory limit leaves room above max_memory_usage.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    cpu: "2"
+    memory: 8Gi
+  # DEMO: requests are what the scheduler reserves (small, so pods fit on a
+  # laptop); limits are the ceiling a pod can burst to. If pods go Pending on
+  # scale-out, Docker is out of memory: skip `scale-replicas` rather than lower
+  # these numbers on stage.
+
+coordination:
+  keeper:
+    replicasCount: 1     # single Keeper to save resources; use 3 for a real HA quorum
+    image:
+      tag: "25.8"
+    storage:
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    # DEMO: Keeper coordinates replication between replicas. Say that one Keeper
+    # is a demo shortcut and a real deployment runs three, one per zone, so it
+    # survives losing a node. The RUNSHEET shows "3 Keeper pods" at 2:00; if
+    # you are on this single-Keeper file, expect only one and adjust the line.
+
+# --- Chart add-ons that are on by default but would break or slow the demo ------
+namedCollections: null   # null, not {}: Helm merges {} with the default, which needs a db.user_labels table
+podTemplate:
+  sidecars: []           # the default cron-sidecar image can't be pulled on minikube
+  extraVolumeMounts: []  # the operator already mounts the data PVC itself
+garage:
+  enabled: false         # S3-compatible object store, not needed here
+backup:
+  enabled: true
+ch-ui:
+  enabled: false         # web UI, not needed here
+# DEMO: these are switched off to keep the demo fast and offline-friendly, not
+# because they are unsupported. If asked about backups or a UI, say they are
+# chart options that are on by default in a full install.

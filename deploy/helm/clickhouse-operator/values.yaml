@@ -164,7 +164,7 @@ podAnnotations:
 # Use [".*"] to watch all namespaces. Entries are regexps and are Helm-templated, so avoid a literal
 # "{{" in a namespace/regexp.
 # Example: watchNamespaces: ["clickhouse", "my-other-namespace"]
-watchNamespaces: []
+watchNamespaces: [ "clickhouse", "demo1", "demo2"]
 # nameOverride -- override name of the chart
 nameOverride: ""
 # fullnameOverride -- full name of the chart.

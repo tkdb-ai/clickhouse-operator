@@ -105,6 +105,12 @@ Controlled by `layout.shardsCount` and `layout.replicasCount`.
 Total ClickHouse pods = `shardsCount × replicasCount`. Pods are named
 `chi-<fullname>-main-<shard>-<replica>-0`.
 
+**Placement.** `layout.antiAffinity` (default on) keeps pods apart, and
+`layout.antiAffinityScope` decides which pods count: the default
+`ClickHouseInstallation` needs one node per ClickHouse pod, so use `Shard` to run
+more pods than nodes while still separating the replicas of each shard. For
+zone-level spreading, set `layout.topologySpreadConstraints` (empty by default).
+
 **Replicated table example** (each replica keeps its own copy):
 ```sql
 CREATE TABLE events ON CLUSTER 'main'
@@ -186,7 +192,7 @@ Volumes are provisioned via `volumeClaimTemplates`, so each replica gets its own
 independent PVC. Leaving `storageClassName` blank uses the cluster default
 StorageClass. Keeper has its own volume (`coordination.keeper.storage`).
 
-Inspect usage (a default busybox sidecar also logs `du` every 60s):
+Inspect usage:
 ```bash
 kubectl exec -n <ns> chi-<fullname>-main-0-0-0 -c clickhouse -- df -h /var/lib/clickhouse
 ```
@@ -206,7 +212,7 @@ What the chart sets up automatically:
   API) and `:3903` (admin API).
 - A post-install hook that configures the cluster layout, creates the bucket
   (`garage.bucket`), generates an access key (Garage requires its own
-  `GK<24-hex>` key format), and stores credentials in the `garage-backup` Secret.
+  `GK<24-hex>` key format), and stores credentials in the `<fullname>-garage-backup` Secret (and, for the `garage.dataBucket` S3 disk, `<fullname>-garage-data`).
 - A `storage_config.xml` defining an `s3_disk` and a storage policy named
   `garage.storagePolicy` (default `s3_main`). Credentials are injected into the
   ClickHouse container via `from_env` so no secret ever lands in the config.
@@ -229,8 +235,9 @@ ALTER TABLE events MODIFY TTL ts + INTERVAL 30 DAY TO VOLUME 'main';
 ```
 
 Set `garage.enabled=false` to use an external S3 (AWS, MinIO, …) instead — see
-the backup section and the README's Garage table. **Change the default
-`rpcSecret`, `adminToken`, and `metricsToken` before any real use.**
+the backup section and the README's Garage table. `garage.rpcSecret` and
+`garage.adminToken` are generated on first install when left empty, and kept
+on upgrade.
 
 ---
 
@@ -331,7 +338,7 @@ that runs on `backup.schedule` (default daily 02:00 UTC) and retains
 `backup.keepRemote` remote backups.
 
 - **With Garage** (`garage.enabled=true`): the S3 endpoint and credentials are
-  wired automatically from the `garage-backup` secret — zero backup config.
+  wired automatically from the `<fullname>-garage-backup` secret — zero backup config.
 - **With external S3**: set `backup.s3.endpoint/region/accessKey/secretKey` and
   `forcePathStyle` (`false` for AWS, `true` for MinIO/others).
 

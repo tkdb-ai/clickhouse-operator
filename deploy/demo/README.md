@@ -78,9 +78,9 @@ tests/                  pytest: values vs chart + CRDs, SQL via chdb on a 1,000-
 * `tests/test_helm.py` validates `helm/values.yaml` against the chart's own
   `values.schema.json`, renders it with `helm template`, and validates the
   resulting CHI and CHK against the operator's CRD schemas
-  (`deploy/helm/clickhouse-operator/crds`). It checks Keeper quorum size, zone
-  spreading and anti-affinity that fits 3 nodes, pinned images, that the
-  chart's add-ons (operator subchart, Garage, backup, CH-UI, cron sidecar) are
+  (`deploy/helm/clickhouse-operator/crds`). It checks Keeper quorum size,
+  anti-affinity that fits 3 nodes, pinned images, that the
+  chart's add-ons (operator subchart, Garage, CH-UI, cron sidecar) are
   off, that ClickHouse points at the Keeper, that numbers don't render as `1e+09` (Helm does that to
   unquoted big integers), that every `--set` key used by the scripts exists
   (Helm silently ignores a misspelt one), and that each step's `--set` really
@@ -104,12 +104,16 @@ tests/                  pytest: values vs chart + CRDs, SQL via chdb on a 1,000-
   `helm uninstall`, and the CHI finalizers would hang.
 * The chart's default anti-affinity (one ClickHouse pod per node across the whole
   installation) can't place 2x2 on 3 nodes, so `helm/values.yaml` scopes it to a
-  shard, and spreads pods across zones with `topologySpreadConstraints` on the
-  operator's `clickhouse.altinity.com/chi` label.
+  shard. The nodes still carry zone labels (`01-cluster-up.sh`), but the demo
+  sets no `topologySpreadConstraints`, so pods are kept on different nodes, not
+  deliberately spread across zones. The chart supports them through
+  `layout.topologySpreadConstraints`.
 * The chart turns on Garage, clickhouse-backup, CH-UI and a cron sidecar by
-  default. The demo turns them off: the sidecar's image is built locally and
-  isn't in any registry, and the rest add pods and image pulls that don't help
-  the story on stage.
+  default. The demo turns off Garage, CH-UI and the sidecar: the sidecar's image
+  is built locally and isn't in any registry, and the rest add pods and image
+  pulls that don't help the story on stage. `backup.enabled` is left `true`,
+  but with Garage off and no `backup.s3` endpoint or keys set there is no
+  storage target for the backups, so don't demo them.
 * minikube's built-in `standard` StorageClass doesn't pin volumes to a node,
   so on a multi-node cluster a pod that moves can come back to an empty disk.
   `01-cluster-up.sh` installs rancher's local-path-provisioner and makes it the

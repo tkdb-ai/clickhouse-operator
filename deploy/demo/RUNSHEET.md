@@ -27,7 +27,7 @@ Font size 18+ in the terminal, dark theme, two panes side by side.
 | 0:00 | `kubectl get nodes -L topology.kubernetes.io/zone` | "Three minikube nodes on my laptop, pretending to be a 3-zone cloud." | 3 nodes, zone-a/b/c |
 | 0:30 | `helm list -A`, then `cat helm/values.yaml` | "The operator is installed once, like any platform piece. Each database is one Helm release and one settings file: Keeper, 2 shards x 2 replicas, users, disks." | Two releases (operator, demo), short readable YAML |
 | 1:30 | `kubectl -n ch-demo get chi,chk` | "Helm hands the operator two objects. The operator turns them into everything else." | One CHI, one CHK |
-| 2:00 | `kubectl -n ch-demo get sts,pvc,svc,pods -o wide` | "From that one object: StatefulSets, volumes, Services, and pods spread across zones." | 4 CH pods + 3 Keeper pods on different nodes |
+| 2:00 | `kubectl -n ch-demo get sts,pvc,svc,pods -o wide` | "From that one object: StatefulSets, volumes, Services, and pods kept on different nodes." | 4 CH pods + 3 Keeper pods on different nodes |
 | 3:00 | `make queries` | "Millions of real New York taxi rides. When do people ride, where from, who tips? Every shard answers its slice at once. Queries 5 and 6 show where each trip lives and that the copies agree." | Fast results, even shard split |
 | 5:00 | `make scale-shards` | "One value, `shardsCount` 2 to 3, one `helm upgrade`. Watch the right pane: never a FAIL." | New pods, system.clusters grows, new rows reach shard 3 |
 | 8:00 | Point at the empty-shard note | "Kubernetes adds capacity. Data placement is still a database decision." | Shard 3 holds only new rows |

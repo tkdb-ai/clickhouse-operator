@@ -19,6 +19,26 @@ ClickHouse HTTP interface is exposed via Ingress:
 5. Secret Name for Reference:
    {{ include "clickhouse.fullname" . }}-admin
 
+CONNECTING TO THE DATABASE
+   Service (in-cluster): clickhouse-{{ include "clickhouse.fullname" . }}.{{ .Release.Namespace }}.svc
+   Ports: 9000 (native), 8123 (HTTP)
+   User:  admin (password from step 1; other users are defined under `users` in values.yaml)
+
+   a) clickhouse-client inside a pod:
+      kubectl exec -it -n {{ .Release.Namespace }} chi-{{ include "clickhouse.fullname" . }}-main-0-0-0 -c clickhouse -- \
+        clickhouse-client --user admin --password "$(kubectl get secret {{ include "clickhouse.fullname" . }}-admin -n {{ .Release.Namespace }} -o jsonpath='{.data.admin}' | base64 --decode)"
+
+   b) From your machine via port-forward:
+      kubectl port-forward -n {{ .Release.Namespace }} svc/clickhouse-{{ include "clickhouse.fullname" . }} 8123:8123 9000:9000
+
+      Native protocol:  clickhouse-client --host 127.0.0.1 --port 9000 --user admin --password '<password>'
+      HTTP:             curl 'http://127.0.0.1:8123/' --user admin:'<password>' --data-binary 'SELECT version()'
+      JDBC:             jdbc:clickhouse://127.0.0.1:8123/default
+{{- if .Values.ingress.enabled }}
+
+   c) Via Ingress (HTTP only): http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}
+{{- end }}
+
 {{- if eq .Values.coordination.mode "keeper" }}
 
 6. ClickHouse Keeper is deployed as the coordination service.
