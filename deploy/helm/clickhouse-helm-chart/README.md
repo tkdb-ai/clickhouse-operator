@@ -39,9 +39,12 @@ helm dependency update   # once, to fetch the operator subchart
 helm install my-ch . -n clickhouse --create-namespace --set operator.enabled=true
 ```
 
-With `operator.watchNamespaces` empty (the default) the operator watches only
+The subchart comes from `https://helm.altinity.com` (see `Chart.yaml`), where
+`operator.watchNamespaces` is empty by default, so the operator watches only
 the namespace it is installed in, which satisfies the namespace-scoping
-requirement above. Other operator settings go under the `operator:` key. Leave
+requirement above. (The copy of the operator chart in `deploy/helm/clickhouse-operator`
+defaults `watchNamespaces` to `[clickhouse, demo1, demo2]` instead; set it explicitly
+when installing from there.) Other operator settings go under the `operator:` key. Leave
 `operator.enabled=false` if an operator is already installed in the cluster.
 
 ## Quick Start

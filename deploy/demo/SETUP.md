@@ -45,7 +45,9 @@ helm upgrade --install clickhouse-operator ../helm/clickhouse-operator \
 ```
 
 `watchNamespaces` is a top-level value of the operator chart. It must include
-`ch-demo`. Left empty, the operator watches only its own namespace; installed in
+`ch-demo`. This repo's copy of the chart defaults to `[clickhouse, demo1, demo2]`,
+which does not include `ch-demo`, so always pass it as above (`make operator`
+does). Left empty, the operator watches only its own namespace; installed in
 kube-system it watches everything, and then the Keeper never comes up (see
 `deploy/helm/clickhouse-helm-chart/README.md`, Prerequisites).
 

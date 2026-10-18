@@ -164,6 +164,9 @@ podAnnotations:
 # Use [".*"] to watch all namespaces. Entries are regexps and are Helm-templated, so avoid a literal
 # "{{" in a namespace/regexp.
 # Example: watchNamespaces: ["clickhouse", "my-other-namespace"]
+# Fork default: this repo's copy of the chart watches the namespaces below (the upstream
+# default is []). Override it for any other install, e.g. --set 'watchNamespaces={ch-demo}'
+# for the demo kit in deploy/demo, which uses the namespace ch-demo.
 watchNamespaces: [ "clickhouse", "demo1", "demo2"]
 # nameOverride -- override name of the chart
 nameOverride: ""
