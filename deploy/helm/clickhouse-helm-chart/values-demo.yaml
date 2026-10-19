@@ -28,7 +28,7 @@ image:
   # on the restarting pod; say so, and mention clients retry.
 
 layout:
-  shardsCount: 1         # scale step adds shards
+  shardsCount: 2         # scale step adds shards
   replicasCount: 2       # scale step adds replicas
   # DEMO: step 04 (`make scale-shards` / `make scale-replicas`). Message: "one
   # value, one helm upgrade". The operator creates the pods and volumes, updates
@@ -129,17 +129,21 @@ coordination:
     # survives losing a node. The RUNSHEET shows "3 Keeper pods" at 2:00; if
     # you are on this single-Keeper file, expect only one and adjust the line.
 
-# --- Chart add-ons that are on by default but would break or slow the demo ------
+# --- Chart add-ons: backup and Garage stay on, the rest are switched off ----------
 namedCollections: null   # null, not {}: Helm merges {} with the default, which needs a db.user_labels table
 podTemplate:
   sidecars: []           # the default cron-sidecar image can't be pulled on minikube
   extraVolumeMounts: []  # the operator already mounts the data PVC itself
 garage:
-  enabled: false         # S3-compatible object store, not needed here
+  enabled: true          # in-cluster S3 server that receives the backups
 backup:
-  enabled: true
+  enabled: true          # clickhouse-backup sidecar per pod plus a daily CronJob
 ch-ui:
   enabled: false         # web UI, not needed here
-# DEMO: these are switched off to keep the demo fast and offline-friendly, not
-# because they are unsupported. If asked about backups or a UI, say they are
-# chart options that are on by default in a full install.
+# DEMO: backups. Garage is a small S3-compatible server (a StatefulSet). A setup
+# hook creates the buckets and writes the credentials into the
+# <release>-garage-backup Secret, which the backup sidecar reads, so nothing needs
+# configuring by hand. Show it with `clickhouse-backup create_remote` then
+# `clickhouse-backup list remote` in the sidecar (commands in the chart README).
+# Garage adds one pod and a setup Job on first install; allow an extra minute.
+# CH-UI is off only to save a pod and an image pull; it is a chart option.

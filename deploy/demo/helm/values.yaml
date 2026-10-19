@@ -75,8 +75,8 @@ podTemplate:
   sidecars: []           # default cron-sidecar image isn't pullable on minikube
   extraVolumeMounts: []  # the operator mounts the data PVC itself
 garage:
-  enabled: false
+  enabled: true          # in-cluster S3 server that receives the backups
 backup:
-  enabled: true
+  enabled: true          # clickhouse-backup sidecar per pod plus a daily CronJob
 ch-ui:
   enabled: false

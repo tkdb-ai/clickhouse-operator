@@ -61,7 +61,7 @@ CONNECTING TO THE DATABASE
 Backup REST API (port 7171) is available on each ClickHouse pod.
 {{- if .Values.garage.enabled }}
    S3 backend: Garage (http://{{ .Release.Name }}-garage:3900, bucket: {{ .Values.backup.s3.bucket }})
-   Credentials: auto-read from the garage-backup secret.
+   Credentials: auto-read from the {{ include "clickhouse.fullname" . }}-garage-backup secret.
 {{- end }}
    Scheduled: {{ .Values.backup.schedule | default "0 2 * * *" }} (CronJob: {{ include "clickhouse.fullname" . }}-backup)
 
@@ -77,21 +77,59 @@ Backup REST API (port 7171) is available on each ClickHouse pod.
 {{- if .Values.garage.enabled }}
 
 Garage S3 is enabled.
-   Endpoint (in-cluster): http://{{ .Release.Name }}-garage:3900
-   Admin API:             http://{{ .Release.Name }}-garage:3903
-   Bucket:                 {{ .Values.garage.bucket }}
-   Credentials secret:    garage-backup
+   Endpoint (in-cluster only): http://{{ .Release.Name }}-garage:3900
+   Admin API (in-cluster):     http://{{ .Release.Name }}-garage:3903
+   Bucket:                      {{ .Values.garage.bucket }}  (backups under {{ .Values.backup.s3.path }})
+   Credentials secret:         {{ include "clickhouse.fullname" . }}-garage-backup
+                               (keys: access-key-id, secret-access-key)
    ClickHouse storage policy '{{ .Values.garage.storagePolicy }}' is configured via s3_disk.
 
    The garage-setup post-install hook configures the layout, creates the
    bucket, and imports the access key automatically.
 
-   List bucket contents:
+   The endpoint name only resolves inside the cluster. From your laptop,
+   use the port-forward in option B below.
+
+   A. List backups from the sidecar (simplest, no credentials needed):
+   kubectl exec -n {{ .Release.Namespace }} chi-{{ include "clickhouse.fullname" . }}-main-0-0-0 -c clickhouse-backup -- clickhouse-backup list remote
+
+   B. Use the AWS CLI (aws s3 ...) from your laptop:
+
+   1) In a separate terminal, forward the Garage S3 port and leave it running.
+      If 3900 is already in use, pick another local port (e.g. 13900:3900)
+      and use it in AWS_ENDPOINT_URL below.
+      kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-garage 3900:3900
+
+   2) In your working terminal, point the AWS CLI at Garage (once per terminal):
+      export AWS_ACCESS_KEY_ID=$(kubectl get secret -n {{ .Release.Namespace }} {{ include "clickhouse.fullname" . }}-garage-backup -o jsonpath='{.data.access-key-id}' | base64 -d)
+      export AWS_SECRET_ACCESS_KEY=$(kubectl get secret -n {{ .Release.Namespace }} {{ include "clickhouse.fullname" . }}-garage-backup -o jsonpath='{.data.secret-access-key}' | base64 -d)
+      export AWS_DEFAULT_REGION=garage
+      export AWS_ENDPOINT_URL=http://localhost:3900
+      (AWS_ENDPOINT_URL needs AWS CLI v2.13+ or v1.29+. On older versions add
+       --endpoint-url http://localhost:3900 to every command instead.)
+
+   3) Run normal aws s3 commands against the bucket:
+      List backups:
+        aws s3 ls s3://{{ .Values.garage.bucket }}/{{ .Values.backup.s3.path }}
+      List the files inside one backup:
+        aws s3 ls s3://{{ .Values.garage.bucket }}/{{ .Values.backup.s3.path }}<backup-name>/ --recursive --human-readable
+      Download a backup to a local folder:
+        aws s3 sync s3://{{ .Values.garage.bucket }}/{{ .Values.backup.s3.path }}<backup-name> ./<backup-name>
+      Print one file:
+        aws s3 cp s3://{{ .Values.garage.bucket }}/{{ .Values.backup.s3.path }}<backup-name>/metadata.json -
+      Object keys and sizes (scriptable):
+        aws s3api list-objects-v2 --bucket {{ .Values.garage.bucket }} --prefix {{ .Values.backup.s3.path }} --query 'Contents[].[Key,Size]' --output text
+
+      Backup names look like 2026-10-19T02-06-04. Use clickhouse-backup (option A)
+      to create or restore backups; the AWS CLI is for looking at and copying files.
+      Avoid aws s3 rm or sync --delete here: that deletes backups ClickHouse expects to find.
+
+   C. List from inside the cluster with a throwaway pod:
    kubectl run -n {{ .Release.Namespace }} garage-ls --rm -i --restart=Never --image=amazon/aws-cli \
-     --env=AWS_ACCESS_KEY_ID=$(kubectl get secret -n {{ .Release.Namespace }} garage-backup -o jsonpath='{.data.access-key-id}' | base64 -d) \
-     --env=AWS_SECRET_ACCESS_KEY=$(kubectl get secret -n {{ .Release.Namespace }} garage-backup -o jsonpath='{.data.secret-access-key}' | base64 -d) \
+     --env=AWS_ACCESS_KEY_ID=$(kubectl get secret -n {{ .Release.Namespace }} {{ include "clickhouse.fullname" . }}-garage-backup -o jsonpath='{.data.access-key-id}' | base64 -d) \
+     --env=AWS_SECRET_ACCESS_KEY=$(kubectl get secret -n {{ .Release.Namespace }} {{ include "clickhouse.fullname" . }}-garage-backup -o jsonpath='{.data.secret-access-key}' | base64 -d) \
      --env=AWS_REGION=garage \
-     -- --endpoint-url http://{{ .Release.Name }}-garage:3900 s3 ls s3://{{ .Values.garage.bucket }}/
+     -- --endpoint-url http://{{ .Release.Name }}-garage:3900 s3 ls s3://{{ .Values.garage.bucket }}/{{ .Values.backup.s3.path }}
 {{- else }}
 
 Garage is disabled. Set garage.enabled=true to deploy an in-cluster S3-compatible store for backups and tiered storage.

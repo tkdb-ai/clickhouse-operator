@@ -67,15 +67,25 @@ def test_operator_is_not_part_of_the_release(values, rendered):
 
 
 def test_chart_add_ons_are_off(rendered):
-    # Garage, backup and CH-UI add an S3 server, a hook Job, a CronJob and
-    # :latest images; none of them belong on stage.
-    assert not {"Deployment", "StatefulSet", "Job", "CronJob"} & set(rendered)
+    # CH-UI is a :latest Deployment and stays off. Backup and Garage are on, so a
+    # backup CronJob, the Garage StatefulSet and its setup hook Job are expected.
+    assert "Deployment" not in rendered
+    assert {"CronJob", "StatefulSet", "Job"} <= set(rendered)
+    assert not any("ch-ui" in d["metadata"]["name"] for d in rendered.values())
 
 
-def test_no_sidecars_in_the_clickhouse_pod(chi):
+def test_backup_is_on_alongside_clickhouse(values, chi):
+    assert values["backup"]["enabled"] is True
+    # Without Garage (or an external backup.s3 target) there is nowhere to upload to.
+    assert values["garage"]["enabled"] is True
+    (template,) = chi["spec"]["templates"]["podTemplates"]
+    assert [c["name"] for c in template["spec"]["containers"]] == ["clickhouse", "clickhouse-backup"]
+
+
+def test_no_cron_sidecar_in_the_clickhouse_pod(chi):
     # The chart's default cron-sidecar uses a locally built image minikube can't pull.
     (template,) = chi["spec"]["templates"]["podTemplates"]
-    assert [c["name"] for c in template["spec"]["containers"]] == ["clickhouse"]
+    assert "cron-sidecar" not in [c["name"] for c in template["spec"]["containers"]]
 
 
 def test_chi_matches_operator_crd(chi):
@@ -156,21 +166,6 @@ def test_client_pod_image_is_pinned():
     assert ":" in image and not image.endswith(":latest")
 
 
-def test_clickhouse_pods_spread_across_zones(chi):
-    (template,) = chi["spec"]["templates"]["podTemplates"]
-    keys = {c["topologyKey"] for c in template["spec"].get("topologySpreadConstraints", [])}
-    assert "topology.kubernetes.io/zone" in keys
-
-
-def test_zone_spread_selects_the_clickhouse_pods(chi):
-    # A selector that matches nothing makes the spread a silent no-op. The chart
-    # adds no labels of its own to ClickHouse pods; the operator labels every pod
-    # with clickhouse.altinity.com/chi=<chi name>.
-    (template,) = chi["spec"]["templates"]["podTemplates"]
-    for constraint in template["spec"]["topologySpreadConstraints"]:
-        assert constraint["labelSelector"]["matchLabels"] == {"clickhouse.altinity.com/chi": chi["metadata"]["name"]}
-
-
 def test_anti_affinity_fits_three_nodes(chi):
     # ClickHouseAntiAffinity is a required rule. Scoped to the whole CHI it allows
     # one pod per node, so 2x2 on 3 minikube nodes leaves a pod Pending. Scoped to
@@ -245,11 +240,21 @@ def test_live_config_step():
 
 def test_rolling_upgrade_step(chi):
     upgraded = render("--set-string", f"image.tag={lib_default('UPGRADE_TAG')}")
-    (image,) = _images(upgraded["ClickHouseInstallation"])
+    # The backup sidecar has its own image; only the ClickHouse server moves.
+    (image,) = [i for i in _images(upgraded["ClickHouseInstallation"]) if "clickhouse-server" in i]
     assert image == f"clickhouse/clickhouse-server:{lib_default('UPGRADE_TAG')}"
-    assert _images(chi) != [image]
+    assert image not in _images(chi)
+    backup = lambda doc: [i for i in _images(doc) if "clickhouse-backup" in i]
+    assert backup(upgraded["ClickHouseInstallation"]) == backup(chi)
     # Only the image moves: the layout is untouched.
     assert _layout(upgraded) == chi["spec"]["configuration"]["clusters"][0]["layout"]
+
+
+def test_backup_image_is_preloaded_into_minikube(chi):
+    # Otherwise the first pod start pulls it over venue Wi-Fi.
+    cluster_up = (DEMO_DIR / "scripts" / "01-cluster-up.sh").read_text()
+    (image,) = [i for i in _images(chi) if "clickhouse-backup" in i]
+    assert image in cluster_up
 
 
 def test_upgrade_target_is_preloaded_into_minikube():

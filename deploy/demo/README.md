@@ -80,8 +80,8 @@ tests/                  pytest: values vs chart + CRDs, SQL via chdb on a 1,000-
   resulting CHI and CHK against the operator's CRD schemas
   (`deploy/helm/clickhouse-operator/crds`). It checks Keeper quorum size,
   anti-affinity that fits 3 nodes, pinned images, that the
-  chart's add-ons (operator subchart, Garage, CH-UI, cron sidecar) are
-  off, that ClickHouse points at the Keeper, that numbers don't render as `1e+09` (Helm does that to
+  chart's add-ons (operator subchart, CH-UI, cron sidecar) are off and
+  that backup and Garage are on, that ClickHouse points at the Keeper, that numbers don't render as `1e+09` (Helm does that to
   unquoted big integers), that every `--set` key used by the scripts exists
   (Helm silently ignores a misspelt one), and that each step's `--set` really
   changes what it should. Rendering tests skip if `helm` isn't on the PATH.
@@ -109,11 +109,13 @@ tests/                  pytest: values vs chart + CRDs, SQL via chdb on a 1,000-
   deliberately spread across zones. The chart supports them through
   `layout.topologySpreadConstraints`.
 * The chart turns on Garage, clickhouse-backup, CH-UI and a cron sidecar by
-  default. The demo turns off Garage, CH-UI and the sidecar: the sidecar's image
-  is built locally and isn't in any registry, and the rest add pods and image
-  pulls that don't help the story on stage. `backup.enabled` is left `true`,
-  but with Garage off and no `backup.s3` endpoint or keys set there is no
-  storage target for the backups, so don't demo them.
+  default. The demo turns off CH-UI and the sidecar: the sidecar's image is built
+  locally and isn't in any registry, and CH-UI adds a pod and an image pull that
+  doesn't help the story on stage. Backup and Garage stay on: each ClickHouse pod
+  runs a `clickhouse-backup` sidecar, a CronJob triggers it daily, and Garage is
+  the in-cluster S3 server it uploads to. A setup hook creates the buckets and
+  writes the credentials to the `<release>-garage-backup` Secret, so there is
+  nothing to configure by hand.
 * minikube's built-in `standard` StorageClass doesn't pin volumes to a node,
   so on a multi-node cluster a pod that moves can come back to an empty disk.
   `01-cluster-up.sh` installs rancher's local-path-provisioner and makes it the

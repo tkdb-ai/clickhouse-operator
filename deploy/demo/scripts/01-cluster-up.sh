@@ -37,7 +37,7 @@ show kubectl get storageclass
 if [[ "${PRELOAD_IMAGES:-1}" == "1" ]]; then
   bold "Pre-loading images into every minikube node (saves minutes on stage)"
   for img in clickhouse/clickhouse-server:24.8 "clickhouse/clickhouse-server:${UPGRADE_TAG}" \
-             clickhouse/clickhouse-keeper:24.8; do
+             clickhouse/clickhouse-keeper:24.8 altinity/clickhouse-backup:2.7.2; do
     minikube image load "$img" -p "$CLUSTER_NAME" || echo "  skipped $img"
   done
 fi

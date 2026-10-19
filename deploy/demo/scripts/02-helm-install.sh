@@ -24,8 +24,11 @@ echo "  operator runs in namespace $op_ns; its watch config:"
 kubectl -n "$op_ns" get configmap -l "$op_sel" -o jsonpath='{range .items[*]}{.data.config\.yaml}{end}' 2>/dev/null \
   | awk '/^watch:/{p=1} p&&/^[^ #w]/{p=0} p' | sed 's/^/    /'
 bold "Installing release '$RELEASE' ($CHART) from helm/values.yaml"
+# No --wait: Garage reports unready until its post-install hook configures it, and
+# Helm only runs that hook after --wait succeeds, so waiting here deadlocks. The
+# steps below wait for Keeper and the CHI instead.
 show helm upgrade --install "$RELEASE" "$CHART" ${CHART_VERSION_ARGS[@]+"${CHART_VERSION_ARGS[@]}"} \
-  -n "$NS" --create-namespace -f "$VALUES" --wait --timeout 10m
+  -n "$NS" --create-namespace -f "$VALUES" --timeout 10m
 bold "Waiting for ClickHouse Keeper (3 nodes)"
 # If the operator doesn't watch $NS (or runs cluster-wide, which the chart README
 # says breaks Keeper), the CHK never gets pods: fail with a hint instead of hanging.

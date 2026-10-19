@@ -166,3 +166,14 @@ def test_operator_chart_default_is_documented():
     setup = (DEMO_DIR / "SETUP.md").read_text()
     if NAMESPACE not in default:
         assert "does not include `ch-demo`" in setup
+
+
+def test_helm_install_does_not_wait_when_garage_is_on():
+    # Garage stays unready until its post-install/post-upgrade hook runs, and Helm
+    # runs hooks only after --wait succeeds, so `helm upgrade --wait` hangs.
+    if not yaml.safe_load(VALUES.read_text()).get("garage", {}).get("enabled"):
+        return
+    for script in ("02-helm-install.sh", "reset.sh", "lib.sh"):
+        for line in (DEMO_DIR / "scripts" / script).read_text().splitlines():
+            if "helm upgrade" in line or "helm install" in line:
+                assert "--wait" not in line, f"{script}: {line.strip()}"
